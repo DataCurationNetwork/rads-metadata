@@ -16,8 +16,6 @@ pacman::p_load(dplyr,
                cowplot, 
                stringr)
 
-
-
 # BY AFFILIATION ########
 ## Pull data using the R DataCite package  #####
 

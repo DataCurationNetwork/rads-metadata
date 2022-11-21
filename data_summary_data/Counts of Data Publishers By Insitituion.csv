@@ -1,19 +1,21 @@
 "publisher","Cornell","Duke","Michigan","Minnesota","Virginia Tech","Washington U","Total"
+"ENCODE Data Coordination Center",12,1006,138566,0,0,0,139584
 "Harvard Dataverse",1284,2098,8272,590,55,0,12299
+"Faculty Opinions Ltd",674,2574,2516,1682,64,502,8012
 "Zenodo",2521,321,463,387,170,77,3939
 "Dryad",656,469,496,528,158,149,2456
 "figshare",597,238,373,231,294,543,2276
+"Institutional Repository",157,224,537,774,426,95,2213
 "Qualitative Data Repository",0,0,1914,145,0,0,2059
-"ICPSR - Interuniversity Consortium for Political and Social Research",92,125,1178,99,6,49,1549
+"ICPSR",92,125,1287,99,6,49,1658
 "Taylor & Francis",105,30,75,52,43,155,460
 "Neotoma Paleoecological Database",0,4,0,210,0,0,214
 "VTTI",0,0,1,2,113,0,116
-"University Libraries, Virginia Tech",0,0,0,0,107,0,107
 "MassIVE",30,34,12,11,1,12,100
 "QDR Main Collection",9,59,23,0,0,0,91
-"Data Repository for the University of Minnesota (DRUM)",1,1,1,83,1,0,87
 "Root",0,0,78,0,0,0,78
 "SciELO journals",22,12,12,6,10,12,74
+"Authorea, Inc.",12,10,16,13,0,14,65
 "Borealis",11,15,9,20,5,0,60
 "OBIS-SEAMAP",0,49,0,0,0,0,49
 "Future Science Group",4,2,0,4,22,12,44
@@ -22,10 +24,10 @@
 "ACSS Dataverse",0,0,6,27,0,0,33
 "IEEE DataPort",1,0,15,10,1,4,31
 "Johns Hopkins University Data Archive",0,26,4,0,0,0,30
+"Biological and Chemical Oceanography Data Management Office",6,13,10,0,0,0,29
 "NASA Space Physics Data Facility",0,0,0,29,0,0,29
 "Databrary",15,13,0,0,0,0,28
 "TRR 170-DB",27,0,0,0,0,0,27
-"Cornell University Library",26,0,0,0,1,0,27
 "Virginia Tech Transportation Institute",0,0,0,0,27,0,27
 "UCAR/NCAR - Earth Observing Laboratory",4,0,21,0,0,0,25
 "Biological and Chemical Oceanography Data Management Office (BCO-DMO)",5,2,7,10,0,0,24
@@ -55,6 +57,7 @@
 "Stanford Digital Repository",0,0,9,0,0,0,9
 "Arctic Data Center",0,0,7,2,0,0,9
 "Earth System Grid Federation",8,0,0,0,0,0,8
+"USDA Forest Service",2,0,2,4,0,0,8
 "Environmental System Science Data Infrastructure for a Virtual Ecosystem; Defense Coastal/Estuarine Research Program (DCERP)",0,4,1,0,3,0,8
 "Portail Data INRAE",0,0,7,0,0,0,7
 "PARADIM, an NSF Materials Innovation Platform",6,0,0,0,0,0,6
@@ -95,6 +98,7 @@
 "NOAA Earth System Research Laboratory, Global Monitoring Division",0,0,1,1,0,0,2
 "Environmental System Science Data Infrastructure for a Virtual Ecosystem; AmeriFlux Management Project",0,0,0,2,0,0,2
 "Microbiology Society",0,0,0,0,2,0,2
+"American College of Radiology",0,0,0,0,0,2,2
 "American Journal of Agricultural Economics",1,0,0,0,0,0,1
 "DataSuds",1,0,0,0,0,0,1
 "Journal of Human Resources",1,0,0,0,0,0,1
@@ -118,6 +122,7 @@
 "UiT Open Research Data Dataverse",0,1,0,0,0,0,1
 "World Data Center for Climate (WDCC) at DKRZ",0,1,0,0,0,0,1
 "Center for Macroecology, Evolution and Climate, University of Copenhagen",0,0,1,0,0,0,1
+"EarthSpace",0,0,1,0,0,0,1
 "Institute for Research on Innovation and Science (IRIS)",0,0,1,0,0,0,1
 "International Soil Carbon Network (ISCN);",0,0,1,0,0,0,1
 "Invasive Species Specialist Group ISSG",0,0,1,0,0,0,1
@@ -140,6 +145,7 @@
 "Environmental System Science Data Infrastructure for a Virtual Ecosystem; AmeriFlux",0,0,0,1,0,0,1
 "Environmental System Science Data Infrastructure for a Virtual Ecosystem; AmeriFlux Network Management Project",0,0,0,1,0,0,1
 "EOL Data Support. UCAR/NCAR - Earth Observing Laboratory",0,0,0,1,0,0,1
+"Forest Service Research Data Archive",0,0,0,1,0,0,1
 "Geology",0,0,0,1,0,0,1
 "Global Carbon Project",0,0,0,1,0,0,1
 "Lawrence Berkeley National Laboratory (LBNL), Berkeley, CA (United States)",0,0,0,1,0,0,1

@@ -18,8 +18,7 @@ pacman::p_load(ggplot2,
 
 pacman::p_load_current_gh("ropensci/rcrossref")
 
-# setwd("/Volumes/hofelich/Documents/NSF_RADS/Metadata_Pull/")
-# setwd("Documents/NSF_RADS/Metadata_Pull/")
+
 
 ## STEP 1: Parse and search file 
 # datwewant <- list()
@@ -252,10 +251,12 @@ duke3dat <- duke3$data
 
 dukedat <- bind_rows(duke2dat, duke3dat)
 
+save(dukedat, file="data_rdata_files/CrossRefPull_Duke_Publisher.Rdata")
+
 #write out data, removing author column (nested list)
 dukedat %>% 
   select(-author) %>% 
-  write.csv(file="Duke_CrossrefDOIs_20220722.csv", row.names = F)
+  write.csv(file="Duke_CrossrefDOIs_20221113.csv", row.names = F)
 
 dukedat %>% 
   group_by(type, container.title, publisher) %>% 
