@@ -24,10 +24,10 @@ Datacite metadata were pulled using the `rdatacite` package in November 2022. Ea
 
 Following recommendations of the Crossref API, metadata was pulled from the April 2022 Public Release file (http://dx.doi.org/10.13003/83b2gq). DOIs were searched records with a `created-dateparts` year of 2012 or newer, that had a `type` of datasets (Crossref does not have software as an available type), and had an author affiliation with one of the six institutions. 
 
-## Instituional repositories
+## Institutional repositories
 Upon initial examination of the affiliation data, we realized that our own institutional repositories were not represented in the data because the affiliation metadata field was not completed as part of the DOI generation process. 
 
-To pull data shared in our institutional repositories as a comparison, a second search was performed to retrieve DOIs published by the insitutional repositories at each university. For the insitutional repositories using DataCite to issue DOIs (5 out of the 6 institutions at the time), the datacite API queried by names of the institutional repositories in the `publisher` metadata field. For the one institution using CrossRef to issue DOIs (Duke), the crossref API was used to retrieve all DOIs published using the Duke member prefixes.  
+To pull data shared in our institutional repositories as a comparison, a second search was performed to retrieve DOIs published by the institutional repositories at each university. For the institutional repositories using DataCite to issue DOIs (5 out of the 6 institutions at the time), the datacite API queried by names of the institutional repositories in the `publisher` metadata field. For the one institution using CrossRef to issue DOIs (Duke), the crossref API was used to retrieve all DOIs published using the Duke member prefixes.  
 
 Institutional repository data was then filtered to include only the relevant repositories, datasets and software resource types, and DOIs published in 2012 or later. 
 
