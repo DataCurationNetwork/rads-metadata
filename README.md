@@ -1,5 +1,5 @@
-# rads
-Public repository for the Realities of Academic Data Sharing (RADS) Initiative 
+# RADS Metadata Analysis
+Public repository for the Realities of Academic Data Sharing (RADS) Initiative Metadata analysis project
 
 
 This repository contains code and data for R metadata pulls. 
@@ -11,3 +11,7 @@ Data Cite metadata was pulled using the rdatacite package. Searchers were done b
 **Crossref Metadata**
 
 Crossref metadata was downloaded from the April 2022 Public Release file (https://academictorrents.com/details/4dcfdf804775f2d92b7a030305fa0350ebef6f3e) and filtered down to the relevant insitutional affiliations and year (>2012). The crossref API was used to pull Duke institutional repository information using the rcrossref package. 
+
+**Analysis Report**
+
+View the current [analysis report](https://ajhmohr.github.io/rads_metadata/)
