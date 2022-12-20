@@ -109,7 +109,20 @@ pacman::p_load(dplyr,
 # #write out combined files
 # save(all_dois, umn, cornell, duke, michigan, vt, washu, file = "data_rdata_files/Combined_datacite_metadata.Rdata")
 
+## COUNT OF DATACITE AFFILIATION
+load(file = "data_rdata_files/Combined_datacite_metadata.Rdata")
+dim(all_dois)
 
+# reduce by >= 2012 and dataset or software types
+all_dois_12 <- all_dois %>% 
+  filter(publicationYear >= 2012) 
+dim(all_dois_12)
+
+all_dois_ds12 <- all_dois_12 %>% 
+  filter(resourceTypeGeneral == "Dataset" | resourceTypeGeneral == "Software")
+
+dim(all_dois_ds12)
+save(all_dois_ds12, file="data_rdata_files/Combined_datacite_metadata_yeartypefilter.Rdata")
 
 
 # BY PUBLISHER - Get Institutional IR Data ########
@@ -210,6 +223,18 @@ all_dois <- bind_rows(list("Minnesota" = umn, "Cornell" = cornell, "Duke" = duke
 
 #write out combined files
 save(all_dois, umn, cornell, duke, michigan, vt, washu, file = "data_rdata_files/Combined_datacite_publisher_metadata.Rdata")
+
+## COUNT OF PUBLISHER - DATACITE
+load("data_rdata_files/Combined_datacite_publisher_metadata.Rdata")
+
+#all dois
+dim(all_dois)
+
+#remove duke
+all_dois %>% 
+  filter(institution != "Duke") %>% 
+  dim
+#18985
 
 
 # Explore data ###################

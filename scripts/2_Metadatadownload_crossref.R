@@ -104,6 +104,9 @@ alldat_dat <- bind_rows(alldat2)
 
 save(alldat_dat, file = "data_rdata_files/Combined_Filtered_Crossref_Data_Dataset.Rdata")
 
+## COUNT OF CROSS REF AFFILIATION
+load("data_rdata_files/Combined_Filtered_Crossref_Data_Dataset.Rdata")
+dim(alldat_dat)
 
 ## STEP 3: Filter out other affiliations
 
@@ -204,6 +207,10 @@ save(alldat_filtered, file="data_rdata_files/Combined_Filtered_Crossref_Data_For
 
 write.csv(alldat_filtered, file="data_data_dois/Data_dois_Crossref_20221022.csv", row.names=F)
 
+## COUNT OF FILTERED CROSS REF AFFILIATION
+#filting name
+load("data_rdata_files/Combined_Filtered_Crossref_Data_ForAnalysis.Rdata")
+dim(alldat_filtered)
 
 ## Data Exploration
 
@@ -252,11 +259,18 @@ duke3dat <- duke3$data
 dukedat <- bind_rows(duke2dat, duke3dat)
 
 save(dukedat, file="data_rdata_files/CrossRefPull_Duke_Publisher.Rdata")
+# load("data_rdata_files/CrossRefPull_Duke_Publisher.Rdata")
+# dim(dukedat) #this must have gotten saved in the middle of pulling - need to read in the CSV
+
+
 
 #write out data, removing author column (nested list)
 dukedat %>% 
   select(-author) %>% 
   write.csv(file="Duke_CrossrefDOIs_20221113.csv", row.names = F)
+
+dukedat <- read.csv("data_all_dois/Duke_CrossrefDOIs_20221113.csv")
+dim(dukedat)
 
 dukedat %>% 
   group_by(type, container.title, publisher) %>% 
