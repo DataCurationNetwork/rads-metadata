@@ -536,7 +536,10 @@ all_dois_collapsed %>%
 
 
 How to collapse by version? Maybe that's for another day... 
-# Look at repositories with affiliation and publication years prior to 2014
+
+# DataCite Affiliation data
+
+Look at repositories with affiliation and publication years prior to 2014
 
 DataCite released affiliation as a metadata option on Oct 16. 2014. The repositories with affiliations for things published before then may have been back-updated?
 
