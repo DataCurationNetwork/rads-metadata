@@ -536,9 +536,246 @@ all_dois_collapsed %>%
 
 
 How to collapse by version? Maybe that's for another day... 
+# Look at repositories with affiliation and publication years prior to 2014
+
+DataCite released affiliation as a metadata option on Oct 16. 2014. The repositories with affiliations for things published before then may have been back-updated?
+
+What repositories have publications with affiliation before then?
+```{r}
+all_dois_collapsed %>% 
+  group_by(publisher, publicationYear) %>% 
+  summarize(count=n()) %>% 
+  arrange(publicationYear) %>% 
+  pivot_wider(names_from = publicationYear, 
+              values_from = count) %>% 
+  arrange(2012, 2013, 2014, 2015) %>% 
+  datatable()
+
+```
+
+# Completeness
+
+Look at fields from datacite DOIs (as the data contain the most complete metadata from that source).
+
+First, clean to unlist some of the fields
+```{r}
+all_dois_collapsed$has_subjects <- unlist(lapply(all_dois_collapsed$subjects, function(x) length(x[[1]])))
+all_dois_collapsed$has_dates <- unlist(lapply(all_dois_collapsed$dates, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
+all_dois_collapsed$has_relatedIdentifiers <- unlist(lapply(all_dois_collapsed$relatedIdentifiers, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
+all_dois_collapsed$has_sizes <- unlist(lapply(all_dois_collapsed$sizes, function(x) length(x[[1]])))
+all_dois_collapsed$has_rightsList <- unlist(lapply(all_dois_collapsed$rightsList, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
+all_dois_collapsed$has_descriptions <- unlist(lapply(all_dois_collapsed$descriptions, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
+all_dois_collapsed$has_geolocations <- unlist(lapply(all_dois_collapsed$geoLocations, function(x) length(x)))
+all_dois_collapsed$has_fundingReferences <- unlist(lapply(all_dois_collapsed$fundingReferences, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
+all_dois_collapsed$has_formats <- unlist(lapply(all_dois_collapsed$formats, function(x) length(x[[1]])))
+```
+
+Then create dataset with indicators for whether fields have information in them (only indicates presence of information, not quality of information).
+```{r}
+all_dois_collapsed_completeness <- 
+all_dois_collapsed %>% 
+  mutate(has_id = ifelse(!is.na(id), 1, 0), 
+         has_publicationYear  = ifelse(!is.na(publicationYear), 1, 0), 
+         has_URL = ifelse(!is.na(URL), 1, 0)) %>% 
+  select(id, group, institution, publisher, starts_with("has_")) %>% 
+  pivot_longer(cols=has_subjects:has_URL, 
+               names_to = "variable", 
+               values_to = "value") %>% 
+  mutate(value_indc = ifelse(value == 0, 0, 1)) 
+
+```
+
+### Completeness of Top Non-IR Repositories {.tabset .tabset-fade .tabset-pills}
+
+```{r}
+by_publisher_complete_dc <- all_dois_collapsed_completeness %>% 
+  filter(publisher %in% top8pubs) %>% 
+  filter(group == "Affiliation - Datacite", 
+         publisher != "Institutional Repository") %>% 
+  group_by(publisher, variable) %>% 
+  summarize(complete = sum(value_indc), total = n()) %>% 
+  mutate(percent_complete = complete/total*100)
+```
+
+#### Dryad
+
+```{r, echo=FALSE}
+p = "Dryad"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+#### Figshare
 
 
-# Completeness? 
+```{r, echo=FALSE}
+p = "figshare"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+#### Harvard Dataverse
+
+```{r, echo=FALSE}
+p = "Harvard Dataverse"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+#### ICPSR
+
+```{r, echo=FALSE}
+p = "ICPSR"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+
+#### Zenodo
+
+```{r, echo=FALSE}
+p = "Zenodo"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+
+### Completeness of IR Repositories {.tabset .tabset-fade .tabset-pills}
+
+```{r}
+by_publisher_complete_ir <- all_dois_collapsed_completeness %>% 
+ filter(publisher == "Institutional Repository") %>% 
+  group_by(institution, variable) %>% 
+  summarize(complete = sum(value_indc), total = n()) %>% 
+  mutate(percent_complete = complete/total*100)
+```
+
+#### Cornell
+
+```{r, echo=FALSE}
+p = "Cornell"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+```
+
+#### Duke
+
+**NOTE: This will not be accurate because Duke metadata came from CrossRef**
+
+```{r, echo=FALSE}
+p = "Duke"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+```
+
+#### Michigan
+
+```{r, echo=FALSE}
+p = "Michigan"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+```
+
+#### Minnesota
+
+```{r, echo=FALSE}
+p = "Minnesota"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+```
+
+#### Virginia Tech
+
+```{r, echo=FALSE}
+p = "Virginia Tech"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+```
+
+#### Wash U
+
+```{r, echo=FALSE}
+p = "Washington U"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+```
+
 
 
 # Write out institutional data
