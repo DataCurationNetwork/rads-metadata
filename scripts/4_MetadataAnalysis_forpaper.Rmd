@@ -787,6 +787,25 @@ by_publisher_complete_ir %>%
   coord_flip()
 ```
 
+### Look at Funder References across repositories
+
+Look at the proportion of DOIs that have funder references filled out. Because not all data are the result of funding, will look at a similar fields (subjects - non-required field that applies equally to funded and non-funded works, and publication year - a required field to serve as proxy for total numebr of records) as a baseline completeness metric relevant to all DOIs. 
+
+
+```{r}
+by_publisher_complete_ir %>% 
+  rename(publisher = institution) %>% 
+  bind_rows(by_publisher_complete_dc) %>% 
+  filter(variable %in% c("has_publicationYear", "has_fundingReferences", "has_subjects")) %>% 
+  ggplot(aes(x=publisher, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=variable), position="dodge") + 
+  scale_fill_hue(name="Metadata Field")+
+  coord_flip() +
+  labs(x="Repository/Publisher", y="Number of DOIs with completed field") +
+  theme_bw()
+
+
+```
 
 
 # Write out institutional data

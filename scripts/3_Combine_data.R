@@ -62,7 +62,7 @@ all_dois_include <- all_doisfiltered %>%
   filter(publisher %in% whichpubtake$publisher)
 
 all_dois_include1 <- all_dois_include %>% 
-  select(institution, id, doi, publisher, publicationYear, resourceType, resourceTypeGeneral, url, metadataVersion, citationCount, versionCount, registered)
+  select(institution, id, doi, publisher, publicationYear, resourceType, resourceTypeGeneral, url, metadataVersion, citationCount, versionCount, registered, subjects, dates, relatedIdentifiers, sizes, rightsList, descriptions, geoLocations, fundingReferences, formats, titles, creators, language)
 
 ## Replace Dukes's data with the CR data
 #for the two NAs for published print, go by deposit year (2018 for both)
@@ -127,8 +127,9 @@ all_dois_by_IRpublisher <-  all_dois_include3 %>%
 
 #write out for later join plotting
 write.csv(all_dois_by_IRpublisher, file="data_all_dois/All_IR_dois_20221216.csv", row.names = F)
+save(all_dois_by_IRpublisher, file="data_all_dois/All_IR_dois_20221216.Rdata")
 
-all_dois_by_IRpublisher <- read.csv(file="data_all_dois/All_IR_dois_20221216.csv")
+load("data_all_dois/All_IR_dois_20221216.Rdata")
 dim(all_dois_by_IRpublisher)
 
 #make sure dataset is capitalized in all metadata resource types
