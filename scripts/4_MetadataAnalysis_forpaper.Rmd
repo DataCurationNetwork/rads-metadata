@@ -563,13 +563,21 @@ Look at fields from datacite DOIs (as the data contain the most complete metadat
 First, clean to unlist some of the fields
 ```{r}
 all_dois_collapsed$has_subjects <- unlist(lapply(all_dois_collapsed$subjects, function(x) length(x[[1]])))
+
 all_dois_collapsed$has_dates <- unlist(lapply(all_dois_collapsed$dates, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
-all_dois_collapsed$has_relatedIdentifiers <- unlist(lapply(all_dois_collapsed$relatedIdentifiers, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
+
+all_dois_collapsed$has_relatedIdentifiers <- unlist(lapply(all_dois_collapsed$relatedIdentifiers, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0)))
+
 all_dois_collapsed$has_sizes <- unlist(lapply(all_dois_collapsed$sizes, function(x) length(x[[1]])))
-all_dois_collapsed$has_rightsList <- unlist(lapply(all_dois_collapsed$rightsList, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
-all_dois_collapsed$has_descriptions <- unlist(lapply(all_dois_collapsed$descriptions, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
-all_dois_collapsed$has_geolocations <- unlist(lapply(all_dois_collapsed$geoLocations, function(x) length(x)))
-all_dois_collapsed$has_fundingReferences <- unlist(lapply(all_dois_collapsed$fundingReferences, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
+
+all_dois_collapsed$has_rightsList <- unlist(lapply(all_dois_collapsed$rightsList, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0)))
+
+all_dois_collapsed$has_descriptions <- unlist(lapply(all_dois_collapsed$descriptions, function(x) ifelse("description" %in% names(x[[1]]), 1, 0)))
+
+all_dois_collapsed$has_geolocations <- unlist(lapply(all_dois_collapsed$geoLocations, function(x) length(x[[1]])))
+
+all_dois_collapsed$has_fundingReferences <- unlist(lapply(all_dois_collapsed$fundingReferences, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0)))
+
 all_dois_collapsed$has_formats <- unlist(lapply(all_dois_collapsed$formats, function(x) length(x[[1]])))
 ```
 

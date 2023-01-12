@@ -113,6 +113,12 @@ pacman::p_load(dplyr,
 load(file = "data_rdata_files/Combined_datacite_metadata.Rdata")
 dim(all_dois)
 
+#check affiliation
+affiliation <- lapply(all_dois$creators, function(x) x[[1]]["affiliation"])
+names(affiliation) <- all_dois$institution
+
+affiliation1 <- unlist(lapply(affiliation, unlist), use.names = T)
+
 # reduce by >= 2012 and dataset or software types
 all_dois_12 <- all_dois %>% 
   filter(publicationYear >= 2012) 
