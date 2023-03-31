@@ -13,6 +13,7 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
 knitr::opts_knit$set(root.dir = '..')
+
 ```
 
 
@@ -48,7 +49,8 @@ pacman::p_load(dplyr,
                cowplot, 
                stringr, 
                knitr, 
-               DT)
+               DT, 
+               ggbreak)
 
 
 
@@ -173,8 +175,11 @@ by_publisher_collapse_table <- by_publisher_collapse %>%
               values_from = count, 
               values_fill = 0) %>% 
   rowwise %>% 
-  mutate(Total = sum(c_across(Cornell:`Washington U`))) %>% 
-  arrange(desc(Total))
+  mutate(Total = sum(c_across(Cornell:`Washington U`))) %>%
+  ungroup() %>% 
+   arrange(desc(Total)) %>% 
+  mutate(Cumulative_Percent = round(cumsum(Total)/sum(Total)*100, 1))
+ 
 
 by_publisher_collapse_table %>% 
   datatable
@@ -193,13 +198,13 @@ write.csv(by_publisher_collapse_table, file="data_summary_data/Counts of  Publis
 ### Top 8 publishers of data dois
 
 ```{r}
-by_publisher_dc_collapse <- all_dois_collapsed %>% 
-  group_by(publisher, institution) %>% 
-  summarize(count=n()) %>% 
-  arrange(institution, desc(count))
+# by_publisher_dc_collapse <- all_dois_collapsed %>% 
+#   group_by(publisher, institution) %>% 
+#   summarize(count=n()) %>% 
+#   arrange(institution, desc(count))
 
 #table of  publishers - data
-by_publisher_dc_collapse_table <- by_publisher_dc_collapse %>% 
+by_publisher_dc_collapse_table <- by_publisher_collapse %>% 
   pivot_wider(names_from = institution, 
               values_from = count, 
               values_fill = 0) %>% 
@@ -217,10 +222,16 @@ by_publisher_dc_collapse_table %>%
   mutate(pubrank = order(count, decreasing = T)) %>% 
   ggplot(aes(x=pubrank, y=count)) +
   geom_bar(stat="identity") +
-  scale_x_continuous(limits = c(0,25)) +
-  labs(x = "Publisher Rank", y="Number of DOIs", title="Number of DOIs by top Publishers")+
+  labs(x = "Publisher Rank (Top 20)", y="Number of DOIs")+
+  scale_y_break(breaks =c(10000, 100000),scales = .15)  +
+  scale_x_continuous(limits = c(0,20), sec.axis = dup_axis(labels=NULL, breaks=NULL)) +
   theme_bw() 
 ```
+
+```{r echo=FALSE}
+ggsave(filename = "figures/NumberofDOIs_by_PublisherRank.png", dev="png")
+```
+
 
 Look at the top 8 publishers - how many does this capture?
 ```{r}
@@ -249,15 +260,16 @@ top8colors <- c("Harvard Dataverse" = "dodgerblue2",
 
 
 
-(by_publisher_plot_collapse <-  by_publisher_dc_collapse %>% 
+(by_publisher_plot_collapse <-  by_publisher_collapse %>% 
     filter(publisher %in% top8pubs) %>% 
     ggplot(aes(x=institution, y=count, fill=publisher)) +
     geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
     scale_fill_manual(values = top8colors, name="Publisher")+
     guides(fill = guide_legend(title.position = "top")) +
-    scale_y_continuous(breaks = seq(from = 0, to=5000, by=500)) +
+    #scale_y_continuous(breaks = seq(from = 0, to=5000, by=500)) +
+     scale_y_break(breaks =c(3000, 120000),scales = .15)  +
     coord_cartesian(ylim = c(0,5000)) +
-    labs(x = "Institution", y="Count of Collapsed DOIs", caption = "Note: Michigan ENCODE bar cut off for scaling") +
+    labs(x = "Institution", y="Count of Collapsed DOIs") +
     theme_bw() +
     theme(legend.position = "bottom", legend.title.align = .5))
 
@@ -265,13 +277,76 @@ top8colors <- c("Harvard Dataverse" = "dodgerblue2",
 ggsave(by_publisher_plot_collapse, filename = "figures/Counts of DOIs by Institution_DOIcollapsed.png", device = "png",  width = 8, height = 6, units="in")
 ```
 
+### Distribution of Top 8 Repos by Institution
+
+```{r}
+
+(by_publisher_percent_plot1 <- by_publisher_collapse %>% 
+  group_by(institution) %>% 
+  mutate(Percent = count/sum(count)*100) %>% 
+  filter(publisher %in% top8pubs) %>% 
+  ggplot(aes(x=institution, y=Percent)) +
+  geom_col(aes(fill=publisher)) +
+  scale_fill_manual(values = top8colors, name="Publisher") +
+  labs(x = "Institution", y="Percent of Total Data DOIs") +
+  guides(fill = guide_legend(title.position = "top")) +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.title.align = .5))
+
+publegend <- get_legend(by_publisher_percent_plot1)
+
+by_publisher_percent_plot1 <- by_publisher_percent_plot1 + theme(legend.position = "none")
+
+(by_publisher_percent_plot2 <- by_publisher_collapse %>% 
+  filter(publisher != "ENCODE Data Coordination Center") %>% 
+  group_by(institution) %>% 
+  mutate(Percent = count/sum(count)*100) %>% 
+  filter(publisher %in% top8pubs) %>%
+  ggplot(aes(x=institution, y=Percent)) +
+  geom_col(aes(fill=publisher)) +
+  scale_fill_manual(values = top8colors, name="Publisher") +
+  labs(x = "Institution", y="Percent of Total Data DOIs") +
+  theme_bw() +
+  theme(legend.position = "none", legend.title.align = .5))
+
+# ggsave(plot = by_publisher_percent_plot1, filename="Percent DOIs Top Publisher Percents - With ENCODE.png", device = "png")
+# 
+# ggsave(plot = by_publisher_percent_plot2, filename="Percent DOIs Top Publisher Percents - No ENCODE.png", device = "png")
+
+
+(combined_pub_plots <- plot_grid(plot_grid(by_publisher_percent_plot1,
+                    by_publisher_percent_plot2, 
+                    labels = c("A", "B")), 
+          publegend, 
+          nrow=2, 
+          rel_heights = c(2,.5), 
+          align = "v", 
+          axis = "t"))
+
+ggsave(plot = combined_pub_plots, filename="figures/Percent DOIs Top Publisher Percents.png", device = "png", width = 10.5, units = "in")
+
+```
+
+Overall Proportion of Data/Software DOIs in Top 8 publishers by institution
+
+```{r}
+by_publisher_collapse %>% 
+  group_by(institution) %>% 
+  mutate(Percent = count/sum(count)*100) %>% 
+  filter(publisher %in% top8pubs) %>% 
+  group_by(institution) %>% 
+  summarize(TotalCount = sum(count), TotalPercent = sum(Percent)) %>% 
+  kable(digits =2)
+
+```
 
 ### Institutional Graphs - Collapsed {.tabset .tabset-fade .tabset-pills}
 
 #### Cornell
 
 ```{r, echo=FALSE}
-by_publisher_dc_collapse %>% 
+by_publisher_collapse %>% 
   ungroup() %>% 
   filter(institution == "Cornell") %>% 
   arrange(desc(count)) %>% 
@@ -303,7 +378,7 @@ all_dois_collapsed %>%
 #### Duke
 
 ```{r, echo=FALSE}
-by_publisher_dc_collapse %>% 
+by_publisher_collapse %>% 
   ungroup() %>% 
   filter(institution == "Duke") %>% 
   arrange(desc(count)) %>% 
@@ -335,7 +410,7 @@ all_dois_collapsed %>%
 #### Michigan
 
 ```{r, echo=FALSE}
-by_publisher_dc_collapse %>% 
+by_publisher_collapse %>% 
   ungroup() %>% 
   filter(institution == "Michigan") %>% 
   arrange(desc(count)) %>% 
@@ -368,7 +443,7 @@ all_dois_collapsed %>%
 #### Minnesota
 
 ```{r, echo=FALSE}
-by_publisher_dc_collapse %>% 
+by_publisher_collapse %>% 
   ungroup() %>% 
   filter(institution == "Minnesota") %>% 
   arrange(desc(count)) %>% 
@@ -403,7 +478,7 @@ all_dois_collapsed %>%
 #### Virginia Tech
 
 ```{r, echo=FALSE}
-by_publisher_dc_collapse %>% 
+by_publisher_collapse %>% 
   ungroup() %>% 
   filter(institution == "Virginia Tech") %>% 
   arrange(desc(count)) %>% 
@@ -438,7 +513,7 @@ all_dois_collapsed %>%
 #### Wash U
 
 ```{r, echo=FALSE}
-by_publisher_dc_collapse %>% 
+by_publisher_collapse %>% 
   ungroup() %>% 
   filter(institution == "Washington U") %>% 
   arrange(desc(count)) %>% 

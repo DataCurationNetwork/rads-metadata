@@ -213,6 +213,9 @@ load("data_rdata_files/Combined_Filtered_Crossref_Data_ForAnalysis.Rdata")
 dim(alldat_filtered)
 
 ## Data Exploration
+instpub <- alldat_filtered %>% 
+  group_by(publisher) %>% 
+  summarize(count=n())
 
 alldat_filtered %>% 
   group_by(publisher) %>% 

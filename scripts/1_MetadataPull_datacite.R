@@ -130,6 +130,11 @@ all_dois_ds12 <- all_dois_12 %>%
 dim(all_dois_ds12)
 save(all_dois_ds12, file="data_rdata_files/Combined_datacite_metadata_yeartypefilter.Rdata")
 
+#how many institutional repos?
+instpub <- all_dois_ds12 %>% 
+  group_by(publisher) %>% 
+  summarize(count = n()) 
+
 
 # BY PUBLISHER - Get Institutional IR Data ########
 #using a query on publisher
