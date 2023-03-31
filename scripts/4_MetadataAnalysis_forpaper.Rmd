@@ -195,7 +195,7 @@ write.csv(by_publisher_collapse_table, file="data_summary_data/Counts of  Publis
 ## Graphs
 
 
-### Top 8 publishers of data dois
+### Top 10 publishers of data dois
 
 ```{r}
 # by_publisher_dc_collapse <- all_dois_collapsed %>% 
@@ -233,82 +233,86 @@ ggsave(filename = "figures/NumberofDOIs_by_PublisherRank.png", dev="png")
 ```
 
 
-Look at the top 8 publishers - how many does this capture?
+Look at the top 10 publishers - how many does this capture?
 ```{r}
-top8pubs <- by_publisher_dc_collapse_table$publisher[1:8]
+top10pubs <- by_publisher_dc_collapse_table$publisher[1:10]
 
 by_publisher_dc_collapse_table %>% 
   group_by(publisher) %>% 
   summarize(count=sum(Total)) %>% 
-  mutate(intop8pub = publisher %in% top8pubs) %>% 
-  group_by(intop8pub) %>% 
+  mutate(intop10pub = publisher %in% top10pubs) %>% 
+  group_by(intop10pub) %>% 
   summarize(totalDOIs = sum(count), nrepos = n()) %>% 
   ungroup() %>% 
-  mutate(propDOIs = totalDOIs/sum(totalDOIs))
+  mutate(propDOIs = totalDOIs/sum(totalDOIs)) %>% 
+  kable(digits = 2)
 ```
 
 
 ```{r}
-top8colors <- c("Harvard Dataverse" = "dodgerblue2",
+top10colors <- c("Harvard Dataverse" = "dodgerblue2",
                 "Zenodo" = "darkorange1",
                 "ICPSR" = "darkcyan",
                 "Dryad" = "lightgray", 
                 "figshare" = "purple", 
                 "Institutional Repository" = "lightblue", 
                 "ENCODE Data Coordination Center" = "gold2", 
-                "Faculty Opinions Ltd" = "darkgreen")
+                "Faculty Opinions Ltd" = "darkgreen", 
+                "Taylor & Francis" = "red", 
+                "Neotoma Paleoecological Database" = "pink")
 
 
 
 (by_publisher_plot_collapse <-  by_publisher_collapse %>% 
-    filter(publisher %in% top8pubs) %>% 
+    filter(publisher %in% top10pubs) %>% 
     ggplot(aes(x=institution, y=count, fill=publisher)) +
     geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
-    scale_fill_manual(values = top8colors, name="Publisher")+
+    scale_fill_manual(values = top10colors, name="Publisher")+
     guides(fill = guide_legend(title.position = "top")) +
     #scale_y_continuous(breaks = seq(from = 0, to=5000, by=500)) +
      scale_y_break(breaks =c(3000, 120000),scales = .15)  +
     coord_cartesian(ylim = c(0,5000)) +
     labs(x = "Institution", y="Count of Collapsed DOIs") +
     theme_bw() +
+    guides(fill = guide_legend(nrow = 3, title.position = "top")) +
     theme(legend.position = "bottom", legend.title.align = .5))
 
 
 ggsave(by_publisher_plot_collapse, filename = "figures/Counts of DOIs by Institution_DOIcollapsed.png", device = "png",  width = 8, height = 6, units="in")
 ```
 
-### Distribution of Top 8 Repos by Institution
+### Distribution of Top 10 Repos by Institution
 
 ```{r}
 
-(by_publisher_percent_plot1 <- by_publisher_collapse %>% 
+by_publisher_percent_plot1 <- by_publisher_collapse %>% 
   group_by(institution) %>% 
   mutate(Percent = count/sum(count)*100) %>% 
-  filter(publisher %in% top8pubs) %>% 
+  filter(publisher %in% top10pubs) %>% 
   ggplot(aes(x=institution, y=Percent)) +
   geom_col(aes(fill=publisher)) +
-  scale_fill_manual(values = top8colors, name="Publisher") +
+  scale_fill_manual(values = top10colors, name="Publisher") +
   labs(x = "Institution", y="Percent of Total Data DOIs") +
   guides(fill = guide_legend(title.position = "top")) +
   theme_bw() +
   theme(legend.position = "bottom", 
-        legend.title.align = .5))
+        legend.title.align = .5)
 
 publegend <- get_legend(by_publisher_percent_plot1)
 
 by_publisher_percent_plot1 <- by_publisher_percent_plot1 + theme(legend.position = "none")
 
-(by_publisher_percent_plot2 <- by_publisher_collapse %>% 
+by_publisher_percent_plot2 <- by_publisher_collapse %>% 
   filter(publisher != "ENCODE Data Coordination Center") %>% 
   group_by(institution) %>% 
   mutate(Percent = count/sum(count)*100) %>% 
-  filter(publisher %in% top8pubs) %>%
+  filter(publisher %in% top10pubs) %>%
   ggplot(aes(x=institution, y=Percent)) +
   geom_col(aes(fill=publisher)) +
-  scale_fill_manual(values = top8colors, name="Publisher") +
+  scale_fill_manual(values = top10colors, name="Publisher") +
   labs(x = "Institution", y="Percent of Total Data DOIs") +
   theme_bw() +
-  theme(legend.position = "none", legend.title.align = .5))
+  theme(legend.position = "none", legend.title.align = .5)
 
 # ggsave(plot = by_publisher_percent_plot1, filename="Percent DOIs Top Publisher Percents - With ENCODE.png", device = "png")
 # 
@@ -328,13 +332,13 @@ ggsave(plot = combined_pub_plots, filename="figures/Percent DOIs Top Publisher P
 
 ```
 
-Overall Proportion of Data/Software DOIs in Top 8 publishers by institution
+Overall Proportion of Data/Software DOIs in Top 10 publishers by institution
 
 ```{r}
 by_publisher_collapse %>% 
   group_by(institution) %>% 
   mutate(Percent = count/sum(count)*100) %>% 
-  filter(publisher %in% top8pubs) %>% 
+  filter(publisher %in% top10pubs) %>% 
   group_by(institution) %>% 
   summarize(TotalCount = sum(count), TotalPercent = sum(Percent)) %>% 
   kable(digits =2)
@@ -350,12 +354,12 @@ by_publisher_collapse %>%
   ungroup() %>% 
   filter(institution == "Cornell") %>% 
   arrange(desc(count)) %>% 
-  slice_head(n=8) %>% 
+  slice_head(n=10) %>% 
   ggplot(aes(x=publisher, y=count, fill=publisher)) +
     geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
-    scale_fill_manual(values = top8colors, name="Publisher")+
+    scale_fill_manual(values = top10colors, name="Publisher")+
     guides(fill = guide_legend(title.position = "top")) +
-    labs(y="Count of Data DOIs - Collapsed", title = "Cornell Top 8 Data Publishers") +
+    labs(y="Count of Data DOIs - Collapsed", title = "Cornell Top 10 Data Publishers") +
     coord_flip() +
     theme_bw() +
     theme(legend.position = "bottom", legend.title.align = .5)
@@ -382,12 +386,12 @@ by_publisher_collapse %>%
   ungroup() %>% 
   filter(institution == "Duke") %>% 
   arrange(desc(count)) %>% 
-  slice_head(n=8) %>% 
+  slice_head(n=10) %>% 
   ggplot(aes(x=publisher, y=count, fill=publisher)) +
     geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
-    scale_fill_manual(values = top8colors, name="Publisher")+
+    scale_fill_manual(values = top10colors, name="Publisher")+
     guides(fill = guide_legend(title.position = "top")) +
-    labs(y="Count of Data DOIs - Collapsed", title = "Duke Top 8 Data Publishers") +
+    labs(y="Count of Data DOIs - Collapsed", title = "Duke Top 10 Data Publishers") +
     coord_flip() +
     theme_bw() +
     theme(legend.position = "bottom", legend.title.align = .5)
@@ -414,12 +418,12 @@ by_publisher_collapse %>%
   ungroup() %>% 
   filter(institution == "Michigan") %>% 
   arrange(desc(count)) %>% 
-  slice_head(n=8) %>% 
+  slice_head(n=10) %>% 
   ggplot(aes(x=publisher, y=count, fill=publisher)) +
     geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
-    scale_fill_manual(values = top8colors, name="Publisher")+
+    scale_fill_manual(values = top10colors, name="Publisher")+
     guides(fill = guide_legend(title.position = "top")) +
-    labs(y="Count of Data DOIs - Collapsed", title = "Michigan Top 8 Data Publishers") +
+    labs(y="Count of Data DOIs - Collapsed", title = "Michigan Top 10 Data Publishers") +
     coord_flip() +
     theme_bw() +
     theme(legend.position = "bottom", legend.title.align = .5)
@@ -447,12 +451,12 @@ by_publisher_collapse %>%
   ungroup() %>% 
   filter(institution == "Minnesota") %>% 
   arrange(desc(count)) %>% 
-  slice_head(n=8) %>% 
+  slice_head(n=10) %>% 
   ggplot(aes(x=publisher, y=count, fill=publisher)) +
     geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
-    scale_fill_manual(values = top8colors, name="Publisher")+
+    scale_fill_manual(values = top10colors, name="Publisher")+
     guides(fill = guide_legend(title.position = "top")) +
-    labs(y="Count of Data DOIs - Collapsed", title = "Minnesota Top 8 Data Publishers") +
+    labs(y="Count of Data DOIs - Collapsed", title = "Minnesota Top 10 Data Publishers") +
     coord_flip() +
     theme_bw() +
     theme(legend.position = "bottom", legend.title.align = .5)
@@ -482,12 +486,12 @@ by_publisher_collapse %>%
   ungroup() %>% 
   filter(institution == "Virginia Tech") %>% 
   arrange(desc(count)) %>% 
-  slice_head(n=8) %>% 
+  slice_head(n=10) %>% 
   ggplot(aes(x=publisher, y=count, fill=publisher)) +
     geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
-    scale_fill_manual(values = top8colors, name="Publisher")+
+    scale_fill_manual(values = top10colors, name="Publisher")+
     guides(fill = guide_legend(title.position = "top")) +
-    labs(y="Count of Data DOIs - Collapsed", title = "Virginia Tech Top 8 Data Publishers") +
+    labs(y="Count of Data DOIs - Collapsed", title = "Virginia Tech Top 10 Data Publishers") +
     coord_flip() +
     theme_bw() +
     theme(legend.position = "bottom", legend.title.align = .5)
@@ -517,12 +521,12 @@ by_publisher_collapse %>%
   ungroup() %>% 
   filter(institution == "Washington U") %>% 
   arrange(desc(count)) %>% 
-  slice_head(n=8) %>% 
+  slice_head(n=10) %>% 
   ggplot(aes(x=publisher, y=count, fill=publisher)) +
     geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
-    scale_fill_manual(values = top8colors, name="Publisher")+
+    scale_fill_manual(values = top10colors, name="Publisher")+
     guides(fill = guide_legend(title.position = "top")) +
-    labs(y="Count of Data DOIs - Collapsed", title = "Wash U Top 8 Data Publishers") +
+    labs(y="Count of Data DOIs - Collapsed", title = "Wash U Top 10 Data Publishers") +
     coord_flip() +
     theme_bw() +
     theme(legend.position = "bottom", legend.title.align = .5)
@@ -675,7 +679,7 @@ all_dois_collapsed %>%
 
 ```{r}
 by_publisher_complete_dc <- all_dois_collapsed_completeness %>% 
-  filter(publisher %in% top8pubs) %>% 
+  filter(publisher %in% top10pubs) %>% 
   filter(group == "Affiliation - Datacite", 
          publisher != "Institutional Repository") %>% 
   group_by(publisher, variable) %>% 
@@ -693,7 +697,7 @@ by_publisher_complete_dc %>%
   mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity", aes(fill=publisher)) +
-  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
   coord_flip()
 
@@ -710,7 +714,7 @@ by_publisher_complete_dc %>%
   mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity", aes(fill=publisher)) +
-  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
   coord_flip()
 
@@ -726,7 +730,7 @@ by_publisher_complete_dc %>%
   mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity", aes(fill=publisher)) +
-  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
   coord_flip()
 
@@ -742,7 +746,7 @@ by_publisher_complete_dc %>%
   mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity", aes(fill=publisher)) +
-  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
   coord_flip()
 
@@ -759,7 +763,7 @@ by_publisher_complete_dc %>%
   mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity", aes(fill=publisher)) +
-  scale_fill_manual(values = top8colors[which(names(top8colors) %in% p)], name="Publisher") +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
   coord_flip()
 
