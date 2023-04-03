@@ -637,55 +637,256 @@ all_dois_collapsed %>%
 
 # Completeness
 
-Look at fields from datacite DOIs (as the data contain the most complete metadata from that source).
+Looking at fields that are recommended by OSTP and DataCite: 
 
-First, clean to unlist some of the fields
+* Resource Author (creators)
+* Resource Publication Date (publication year)
+* Funder Project Identifier (fundingReferences)
+* Project Funder (fundingReferences)
+* Resource Author Affiliation (creators)
+* Funder Identifier (fundingReferences)
+* Date Created (dates)
+* Resource Publisher (publisher)
+* Rights (rightsList)
+* Abstract (descriptions)
+* Keyword (subjects)
+* Resource Author Affiliation Identifier (creators)
+* Resource Author Identifier (creators)
+* Related Identifiers (relatedIdentifiers)
+
+Subset the data to these fields
 ```{r}
-all_dois_collapsed$has_subjects <- unlist(lapply(all_dois_collapsed$subjects, function(x) length(x[[1]])))
+for_metadata <- all_dois_collapsed %>% 
+  select(institution, group, DOI, creators, publicationYear, fundingReferences, dates, publisher, rightsList, descriptions, subjects, relatedIdentifiers) %>% 
+  mutate(RowID = 1:nrow(.))
 
-all_dois_collapsed$has_dates <- unlist(lapply(all_dois_collapsed$dates, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0)))
+#create function to return if at least one is not NA or NULL
+atleastonevalid <- function(x) {
+  sum(!is.na(x)) > 0 &
+    sum(x != "") > 0 &
+    sum(x != "NULL") > 0}
 
-all_dois_collapsed$has_relatedIdentifiers <- unlist(lapply(all_dois_collapsed$relatedIdentifiers, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0)))
-
-all_dois_collapsed$has_sizes <- unlist(lapply(all_dois_collapsed$sizes, function(x) length(x[[1]])))
-
-all_dois_collapsed$has_rightsList <- unlist(lapply(all_dois_collapsed$rightsList, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0)))
-
-all_dois_collapsed$has_descriptions <- unlist(lapply(all_dois_collapsed$descriptions, function(x) ifelse("description" %in% names(x[[1]]), 1, 0)))
-
-all_dois_collapsed$has_geolocations <- unlist(lapply(all_dois_collapsed$geoLocations, function(x) length(x[[1]])))
-
-all_dois_collapsed$has_fundingReferences <- unlist(lapply(all_dois_collapsed$fundingReferences, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0)))
-
-all_dois_collapsed$has_formats <- unlist(lapply(all_dois_collapsed$formats, function(x) length(x[[1]])))
 ```
+
+Creator fields (author name, affiliation, name identifiers, affiliation identifier)
+```{r}
+#each are nested in an item within a list, so need to unnest 
+for_metadata$creators1 <- lapply(for_metadata$creators, function(x) x[[1]])
+
+creators <- for_metadata %>% 
+  select(RowID, publisher, creators1) %>% 
+  unnest(cols = creators1, keep_empty = T) 
+
+#make lists in nameIdentifiers an empty dataframe
+
+
+#make each column of interest a vector
+creators$affiliation1 <- lapply(creators$affiliation, paste, collapse=",")
+creators$nameIdentifier <- lapply(creators$nameIdentifiers, paste, collapse=",")
+
+creator_table <- creators %>% 
+  group_by(RowID) %>% 
+  summarize(has_name = atleastonevalid(name), 
+            has_affiliation = atleastonevalid(affiliation1), 
+            has_nameIdentifier = atleastonevalid(nameIdentifier),
+            count=n())
+
+#Some quick accuracy checks
+noname <- filter(for_metadata, RowID %in% creator_table$RowID[which(creator_table$has_name==FALSE)])
+#seem to be the crossref ones
+```
+
+
+Publication Year and dates
+```{r, warning=FALSE}
+for_metadata$dates1 <-lapply(for_metadata$dates, function(x) x[[1]])
+
+dates <- for_metadata %>% 
+  unnest(dates1, keep_empty = T)
+
+date_table <- dates %>% 
+  pivot_wider(names_from = dateType, 
+              values_from = date, 
+              names_prefix = "date_") %>% 
+  group_by(RowID) %>% 
+  summarize(has_pubYear = atleastonevalid(publicationYear), 
+            has_dateCreated = atleastonevalid(date_Created), 
+            has_dateIssued = atleastonevalid(date_Issued), 
+            has_dateCollected = atleastonevalid(date_Collected))
+
+
+```
+
+
+Funder Information 
+```{r}
+for_metadata$fundingReferences1 <- lapply(for_metadata$fundingReferences, function(x) x[[1]])
+
+#pull out the unique funder variables in the data
+fundervariables <- unique(unlist((lapply(for_metadata$fundingReferences1, function(x) names(x)))))
+
+#add to dataset
+for_metadata <- as.data.frame(for_metadata)
+
+#fill in with whether that variable is present in each row of metadata
+containsfundervar <- lapply(for_metadata$fundingReferences1, function(x) fundervariables %in% names(x))
+names(containsfundervar) <- for_metadata$RowID
+
+for_metadata[,fundervariables] <- do.call(rbind, containsfundervar)
+
+funding_table <- for_metadata %>% 
+  select(RowID, all_of(fundervariables))
+
+```
+
+
+Rights
+```{r}
+for_metadata$rightsList1 <- lapply(for_metadata$rightsList, function(x) x[[1]])
+
+rightsvariables <- unique(unlist((lapply(for_metadata$rightsList1, function(x) names(x)))))
+
+#fill in with whether that variable is present in each row of metadata
+containsrightsvar <- lapply(for_metadata$rightsList1, function(x) rightsvariables %in% names(x))
+names(containsrightsvar) <- for_metadata$RowID
+
+for_metadata[,rightsvariables] <- do.call(rbind, containsrightsvar)
+
+rights_table <- for_metadata %>% 
+  select(RowID, all_of(rightsvariables))
+
+```
+
+
+Descriptions (includes abstract)
+```{r}
+for_metadata$descriptions1 <-lapply(for_metadata$descriptions, function(x) x[[1]])
+
+descvariables <- unique(unlist((lapply(for_metadata$descriptions1, function(x) names(x)))))
+
+#fill in with whether that variable is present in each row of metadata
+containsdescvar <- lapply(for_metadata$descriptions1, function(x) descvariables %in% names(x))
+names(containsdescvar) <- for_metadata$RowID
+
+for_metadata[,descvariables] <- do.call(rbind, containsdescvar)
+
+desc_table <- for_metadata %>% 
+  select(RowID, all_of(descvariables))
+
+
+```
+
+Related identifiers
+```{r}
+for_metadata$relatedIdentifiers <- lapply(for_metadata$relatedIdentifiers, function(x) x[[1]])
+
+idvariables <- unique(unlist((lapply(for_metadata$relatedIdentifiers, function(x) names(x)))))
+
+#fill in with whether that variable is present in each row of metadata
+containsidvar <- lapply(for_metadata$relatedIdentifiers, function(x) idvariables %in% names(x))
+names(containsidvar) <- for_metadata$RowID
+
+for_metadata[,idvariables] <- do.call(rbind, containsidvar)
+
+relid_table <- for_metadata %>% 
+  select(RowID, all_of(idvariables))
+
+
+```
+
+
+Subjects
+```{r}
+for_metadata$subjects <- lapply(for_metadata$subjects, function(x) x[[1]])
+
+subvariables <- unique(unlist((lapply(for_metadata$subjects, function(x) names(x)))))
+
+#fill in with whether that variable is present in each row of metadata
+containssubvar <- lapply(for_metadata$subjects, function(x) subvariables %in% names(x))
+names(containssubvar) <- for_metadata$RowID
+
+for_metadata[,subvariables] <- do.call(rbind, containssubvar)
+
+sub_table <- for_metadata %>% 
+  select(RowID, all_of(subvariables))
+```
+
+Combine all of them and select relevant fields
+```{r}
+all_dois_collapsed_completeness <- for_metadata %>% 
+  select(RowID, DOI,publisher, institution, group) %>% 
+  full_join(creator_table, by="RowID") %>% 
+  full_join(date_table, by="RowID") %>% 
+  full_join(funding_table, by="RowID") %>% 
+  full_join(desc_table, by="RowID") %>% 
+  full_join(relid_table, by="RowID") %>% 
+  full_join(rights_table, by="RowID") %>% 
+  full_join(sub_table, by="RowID") %>% 
+  select(RowID,DOI, publisher, institution,group, has_name, has_affiliation, has_nameIdentifier, has_pubYear, has_dateCreated, funderName, awardNumber, funderIdentifier, description, relatedIdentifier, rights, subject, lang)
+
+```
+
+
 
 Then create dataset with indicators for whether fields have information in them (only indicates presence of information, not quality of information).
 ```{r}
-all_dois_collapsed_completeness <- 
-all_dois_collapsed %>% 
-  mutate(has_id = ifelse(!is.na(id), 1, 0), 
-         has_publicationYear  = ifelse(!is.na(publicationYear), 1, 0), 
-         has_URL = ifelse(!is.na(URL), 1, 0)) %>% 
-  select(id, group, institution, publisher, starts_with("has_")) %>% 
-  pivot_longer(cols=has_subjects:has_URL, 
+all_dois_collapsed_completenessl <- all_dois_collapsed_completeness %>% 
+  pivot_longer(cols=has_name:lang, 
                names_to = "variable", 
                values_to = "value") %>% 
-  mutate(value_indc = ifelse(value == 0, 0, 1)) 
+  mutate(variable = gsub("has_", "", variable))
 
 ```
 
-### Completeness of Top Non-IR Repositories {.tabset .tabset-fade .tabset-pills}
+Table of metadata completeness for 10 sample DOIs from each publisher
 
 ```{r}
-by_publisher_complete_dc <- all_dois_collapsed_completeness %>% 
+all_dois_collapsed_completeness %>% 
   filter(publisher %in% top10pubs) %>% 
-  filter(group == "Affiliation - Datacite", 
-         publisher != "Institutional Repository") %>% 
-  group_by(publisher, variable) %>% 
-  summarize(complete = sum(value_indc), total = n()) %>% 
-  mutate(percent_complete = complete/total*100)
+   filter(group != "Affiliation - CrossRef") %>% 
+  select(-RowID, -institution, -group) %>% 
+  group_by(publisher) %>% 
+  slice_head(n=10) %>% 
+  datatable(options = list(
+  pageLength = 20, scrollX = TRUE))
 ```
+
+### Completeness of Top DataCite Repositories
+
+```{r}
+by_publisher_complete_dc <- all_dois_collapsed_completenessl %>% 
+  filter(publisher %in% top10pubs) %>% 
+  filter(group != "Affiliation - CrossRef") %>% 
+  group_by(publisher, variable) %>% 
+  summarize(complete = sum(value), total = n()) %>% 
+  mutate(percent_complete = complete/total*100)
+
+#organize the variables by completeness
+compvarorder <- by_publisher_complete_dc %>% 
+  group_by(variable) %>% 
+  summarize(avgcomp = mean(percent_complete, na.rm=T)) %>% 
+  arrange(desc(avgcomp))
+```
+
+```{r}
+(completepub <- by_publisher_complete_dc %>% 
+  mutate(variable = factor(variable, levels = compvarorder$variable)) %>% 
+  ggplot(aes(x=variable, y=percent_complete, group=publisher)) +
+  geom_line(aes(color=publisher), position = position_jitter(height = 1, width = .1), linewidth = 1) +
+  scale_color_manual(values = top10colors, name="Publisher") +
+  labs(x="DataCite Metadata Field", y = "Percent Records Complete") +
+  theme_bw() + 
+  guides(color = guide_legend(nrow = 2, title.position = "top")) +
+  theme(legend.position = "bottom", legend.title.align = .5, 
+        axis.text.x = element_text(angle=90, hjust = 1, vjust = .5)))
+
+ggsave(plot = completepub, filename = "figures/CompletenessData_allDatacite.png", width = 10, height = 5.25, units="in")
+
+```
+
+
+### Completeness of Individual Top Non-IR Repositories {.tabset .tabset-fade .tabset-pills}
+
 
 #### Dryad
 
@@ -773,12 +974,47 @@ by_publisher_complete_dc %>%
 ### Completeness of IR Repositories {.tabset .tabset-fade .tabset-pills}
 
 ```{r}
-by_publisher_complete_ir <- all_dois_collapsed_completeness %>% 
+by_publisher_complete_ir <- all_dois_collapsed_completenessl %>% 
  filter(publisher == "Institutional Repository") %>% 
+  filter(institution != "Duke") %>% 
   group_by(institution, variable) %>% 
-  summarize(complete = sum(value_indc), total = n()) %>% 
+  summarize(complete = sum(value, na.rm = T), total = n()) %>% 
   mutate(percent_complete = complete/total*100)
+
+#organize the variables by completeness
+compvarorderIR <- by_publisher_complete_ir %>% 
+  group_by(variable) %>% 
+  summarize(avgcomp = mean(percent_complete, na.rm=T)) %>% 
+  arrange(desc(avgcomp))
+
+instcolors <- c("Cornell" = "#B31B1B", 
+                "Duke" = "#00539B", 
+                "Michigan" = "#FFCB05", # #00274C
+                "Minnesota" = "#7a0019", 
+                "Virginia Tech" = "#E87722", 
+                "Washington U" = "#6c7373")
+
 ```
+
+Combined plot for IRs
+
+```{r}
+(completeIRpub <- by_publisher_complete_ir %>% 
+  mutate(variable = factor(variable, levels = compvarorderIR$variable)) %>% 
+  ggplot(aes(x=variable, y=percent_complete, group=institution)) +
+  geom_line(aes(color=institution), position = position_jitter(height = 1, width = .1), linewidth = 1) +
+  scale_color_manual(values = instcolors , name="Institutional Repository") +
+  labs(x="DataCite Metadata Field", y = "Percent Records Complete") +
+  theme_bw() + 
+  guides(color = guide_legend(nrow = 2, title.position = "top")) +
+  theme(legend.position = "bottom", legend.title.align = .5, 
+        axis.text.x = element_text(angle=90, hjust = 1, vjust = .5)))
+
+ggsave(plot = completepub, filename = "figures/CompletenessData_IRDatacite.png", width = 10, height = 5.25, units="in")
+
+```
+
+
 
 #### Cornell
 
@@ -791,24 +1027,15 @@ by_publisher_complete_ir %>%
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
-  coord_flip()
+  coord_flip() +
+  theme_bw()
 ```
 
 #### Duke
 
-**NOTE: This will not be accurate because Duke metadata came from CrossRef**
+**NOTE: Duke metadata came from CrossRef so this plot is removed**
 
-```{r, echo=FALSE}
-p = "Duke"
 
-by_publisher_complete_ir %>% 
-  filter(institution == p) %>% 
-  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
-  ggplot(aes(x=variable, y=complete)) +
-  geom_bar(stat = "identity") +
-  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
-  coord_flip()
-```
 
 #### Michigan
 
@@ -821,7 +1048,8 @@ by_publisher_complete_ir %>%
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
-  coord_flip()
+  coord_flip() +
+  theme_bw()
 ```
 
 #### Minnesota
@@ -835,7 +1063,8 @@ by_publisher_complete_ir %>%
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
-  coord_flip()
+  coord_flip() +
+  theme_bw()
 ```
 
 #### Virginia Tech
@@ -849,7 +1078,8 @@ by_publisher_complete_ir %>%
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
-  coord_flip()
+  coord_flip() +
+  theme_bw()
 ```
 
 #### Wash U
@@ -863,28 +1093,29 @@ by_publisher_complete_ir %>%
   ggplot(aes(x=variable, y=complete)) +
   geom_bar(stat = "identity") +
   labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
-  coord_flip()
-```
-
-### Look at Funder References across repositories
-
-Look at the proportion of DOIs that have funder references filled out. Because not all data are the result of funding, will look at a similar fields (subjects - non-required field that applies equally to funded and non-funded works, and publication year - a required field to serve as proxy for total numebr of records) as a baseline completeness metric relevant to all DOIs. 
-
-
-```{r}
-by_publisher_complete_ir %>% 
-  rename(publisher = institution) %>% 
-  bind_rows(by_publisher_complete_dc) %>% 
-  filter(variable %in% c("has_publicationYear", "has_fundingReferences", "has_subjects")) %>% 
-  ggplot(aes(x=publisher, y=complete)) +
-  geom_bar(stat = "identity", aes(fill=variable), position="dodge") + 
-  scale_fill_hue(name="Metadata Field")+
   coord_flip() +
-  labs(x="Repository/Publisher", y="Number of DOIs with completed field") +
   theme_bw()
-
-
 ```
+
+<!-- ### Look at Funder References across repositories -->
+
+<!-- Look at the proportion of DOIs that have funder references filled out. Because not all data are the result of funding, will look at a similar fields (subjects - non-required field that applies equally to funded and non-funded works, and publication year - a required field to serve as proxy for total numebr of records) as a baseline completeness metric relevant to all DOIs.  -->
+
+
+<!-- ```{r} -->
+<!-- by_publisher_complete_ir %>%  -->
+<!--   rename(publisher = institution) %>%  -->
+<!--   bind_rows(by_publisher_complete_dc) %>%  -->
+<!--   filter(variable %in% c("has_publicationYear", "has_fundingReferences", "has_subjects")) %>%  -->
+<!--   ggplot(aes(x=publisher, y=complete)) + -->
+<!--   geom_bar(stat = "identity", aes(fill=variable), position="dodge") +  -->
+<!--   scale_fill_hue(name="Metadata Field")+ -->
+<!--   coord_flip() + -->
+<!--   labs(x="Repository/Publisher", y="Number of DOIs with completed field") + -->
+<!--   theme_bw() -->
+
+
+<!-- ``` -->
 
 
 # Write out institutional data
@@ -907,7 +1138,26 @@ for (i in unique(all_dois$institution)) {
 ```
 
 
+<!-- First, clean to unlist some of the fields -->
+<!-- ```{r} -->
+<!-- all_dois_collapsed$has_subjects <- unlist(lapply(all_dois_collapsed$subjects, function(x) length(x[[1]]))) -->
 
+<!-- all_dois_collapsed$has_dates <- unlist(lapply(all_dois_collapsed$dates, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0))) -->
+
+<!-- all_dois_collapsed$has_relatedIdentifiers <- unlist(lapply(all_dois_collapsed$relatedIdentifiers, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0))) -->
+
+<!-- all_dois_collapsed$has_sizes <- unlist(lapply(all_dois_collapsed$sizes, function(x) length(x[[1]]))) -->
+
+<!-- all_dois_collapsed$has_rightsList <- unlist(lapply(all_dois_collapsed$rightsList, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0))) -->
+
+<!-- all_dois_collapsed$has_descriptions <- unlist(lapply(all_dois_collapsed$descriptions, function(x) ifelse("description" %in% names(x[[1]]), 1, 0))) -->
+
+<!-- all_dois_collapsed$has_geolocations <- unlist(lapply(all_dois_collapsed$geoLocations, function(x) length(x[[1]]))) -->
+
+<!-- all_dois_collapsed$has_fundingReferences <- unlist(lapply(all_dois_collapsed$fundingReferences, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0))) -->
+
+<!-- all_dois_collapsed$has_formats <- unlist(lapply(all_dois_collapsed$formats, function(x) length(x[[1]]))) -->
+<!-- ``` -->
 
 <!-- ## Overall counts by resource type -->
 
