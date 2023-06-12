@@ -1,0 +1,1602 @@
+---
+title: "RADS Metadata Analysis"
+author: "Alicia Hofelich Mohr"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+knitr::opts_knit$set(root.dir = '..')
+
+```
+
+
+# Data Collection Methods
+
+### Data by Affiliation 
+Datacite metadata were pulled using the `rdatacite` package in November 2022. Each of the six institutions were searched using the name of each University in the `creators.affiliation.name` metadata field. Results were filtered to include DOIs with a `publicationYear` of 2012 or later, and a `resourceTypeGeneral` of dataset or software. As the search terms returned other institutions with similar names, results were filtered to include DOIs only from the relevant institutional affiliations. 
+
+Following recommendations of the Crossref API, metadata was pulled from the April 2022 Public Release file (http://dx.doi.org/10.13003/83b2gq). DOIs were searched records with a `created-dateparts` year of 2012 or newer, that had a `type` of datasets (Crossref does not have software as an available type), and had an author affiliation with one of the six institutions. 
+
+## Institutional repositories
+Upon initial examination of the affiliation data, we realized that our own institutional repositories were not represented in the data because the affiliation metadata field was not completed as part of the DOI generation process. 
+
+To pull data shared in our institutional repositories as a comparison, a second search was performed to retrieve DOIs published by the institutional repositories at each university. For the institutional repositories using DataCite to issue DOIs (5 out of the 6 institutions at the time), the datacite API queried by names of the institutional repositories in the `publisher` metadata field. For the one institution using CrossRef to issue DOIs (Duke), the crossref API was used to retrieve all DOIs published using the Duke member prefixes.  
+
+Institutional repository data was then filtered to include only the relevant repositories, datasets and software resource types, and DOIs published in 2012 or later. 
+
+Affiliation data from datacite, affiliation data from cross ref, and the institutional repository data were combined into a single dataset. 
+
+
+
+
+# Analysis
+
+Load required packages and read in combined data. 
+```{r}
+#packages
+pacman::p_load(dplyr, 
+               tidyr, 
+               ggplot2, 
+               rjson,
+               rdatacite,
+               cowplot, 
+               stringr, 
+               knitr, 
+               DT, 
+               ggbreak)
+
+
+
+#Load the combined data from 3_Combined_data.R
+load(file="data_rdata_files/Combined_ALL_data.Rdata")
+
+#rename object
+all_dois <- combined_dois 
+
+#re-factor group so that datacite appears before cross ref
+all_dois$group <- factor(all_dois$group, levels = c("Affiliation - Datacite", "Affiliation - CrossRef", "IR_publisher"))
+```
+
+# Collapse DOIs by container 
+
+Some repositories (such as Harvard's Dataverse and Qualitative Data Repository) assign DOIs at the level of the file, rather than the study. Similarly, Zenodo often has many related DOIs for multiple figures within a study. In order to attempt to compare study-to-study counts of data sharing, look at the DOIs collapsed by "container".  
+```{r}
+by_container <- 
+all_dois %>% 
+  filter(!is.na(container_identifier)) %>% 
+  group_by(container_identifier, publisher, title, institution) %>% 
+  summarize(count=n()) %>% 
+  arrange(desc(count))
+```
+
+How many publishers have container DOIs?
+```{r}
+by_container %>% 
+  group_by(publisher) %>% 
+  summarize(count=n()) %>% 
+  arrange(desc(count)) %>% 
+  datatable
+
+```
+
+
+Collapsing by container for counts
+```{r}
+containerdups <- which(!is.na(all_dois$container_identifier) & duplicated(all_dois$container_identifier))
+
+all_dois_collapsed <- all_dois[-containerdups,]
+```
+
+This leaves a total of `r nrow(all_dois_collapsed)` cases. 
+
+
+
+# Overview of the data
+
+DOI types by resource
+```{r}
+all_dois_collapsed %>% 
+  group_by(resourceTypeGeneral, group) %>% 
+  summarize(count=n()) %>% 
+  pivot_wider(names_from = group, 
+              values_from = count, 
+              values_fill = 0) %>% 
+  kable()
+```
+
+
+DOI by institutional affiliation/publisher
+```{r}
+all_dois_collapsed %>% 
+  group_by(group, institution) %>% 
+  summarize(count=n()) %>% 
+  pivot_wider(names_from = group,
+              values_from = count) %>% 
+  kable()
+```
+
+
+## Collapse IRs into a single category
+
+Look at all the Institutional Repositories Captured
+```{r}
+IR_pubs <- all_dois_collapsed %>% 
+  filter(group == "IR_publisher") %>% 
+  group_by(publisher_plus) %>% 
+  summarize(count = n()) 
+
+IR_pubs %>% 
+  kable(col.names = c("Institutional Repository", "Count"))
+
+```
+
+Replace all of these publishers with "Institutional Repository" so that they will be represented in a single bar.
+```{r}
+all_dois_collapsed$publisher[which(all_dois_collapsed$publisher_plus %in% unique(IR_pubs$publisher_plus))] <- "Institutional Repository"
+
+#catch the rest of the "Cornell University Library"
+all_dois_collapsed$publisher[which(all_dois_collapsed$publisher == "Cornell University Library")] <- "Institutional Repository"
+
+#and stray VT
+all_dois_collapsed$publisher[which(all_dois_collapsed$publisher == "University Libraries, Virginia Tech")] <- "Institutional Repository"
+
+#and DRUM
+all_dois_collapsed$publisher[which(all_dois_collapsed$publisher == "Data Repository for the University of Minnesota (DRUM)")] <- "Institutional Repository"
+
+##ICPSR is also inconsistent
+all_dois_collapsed$publisher[grep("Consortium for Political", all_dois_collapsed$publisher)] <- "ICPSR"
+
+
+```
+
+
+## Overall Count of Data and Software DOIs
+
+Think we just keep these together for the main analysis...
+
+```{r}
+by_publisher_collapse <- all_dois_collapsed %>% 
+  group_by(publisher, institution) %>% 
+  summarize(count=n()) %>% 
+  arrange(institution, desc(count))
+```
+
+Table of publisher counts
+```{r}
+by_publisher_collapse_table <- by_publisher_collapse %>% 
+  pivot_wider(names_from = institution, 
+              values_from = count, 
+              values_fill = 0) %>% 
+  rowwise %>% 
+  mutate(Total = sum(c_across(Cornell:`Washington U`))) %>%
+  ungroup() %>% 
+   arrange(desc(Total)) %>% 
+  mutate(Cumulative_Percent = round(cumsum(Total)/sum(Total)*100, 1))
+ 
+
+by_publisher_collapse_table %>% 
+  datatable
+```
+
+
+Write out the table of data & software publishers
+```{r}
+write.csv(by_publisher_collapse_table, file="data_summary_data/Counts of  Publishers By Insitituion - Collapsed by container.csv", row.names = F)
+```
+
+
+## Graphs
+
+
+### Top 10 publishers of data dois
+
+```{r}
+# by_publisher_dc_collapse <- all_dois_collapsed %>% 
+#   group_by(publisher, institution) %>% 
+#   summarize(count=n()) %>% 
+#   arrange(institution, desc(count))
+
+#table of  publishers - data
+by_publisher_dc_collapse_table <- by_publisher_collapse %>% 
+  pivot_wider(names_from = institution, 
+              values_from = count, 
+              values_fill = 0) %>% 
+  rowwise %>% 
+  mutate(Total = sum(c_across(Cornell:`Washington U`))) %>% 
+  arrange(desc(Total))
+```
+
+Look at publishers based on rank of number of DOIs
+```{r}
+by_publisher_dc_collapse_table %>% 
+  group_by(publisher) %>% 
+  summarize(count=sum(Total)) %>% 
+  arrange(desc(count)) %>% 
+  mutate(pubrank = order(count, decreasing = T)) %>% 
+  ggplot(aes(x=pubrank, y=count)) +
+  geom_bar(stat="identity") +
+  labs(x = "Publisher Rank (Top 20)", y="Number of DOIs")+
+  scale_y_break(breaks =c(10000, 100000),scales = .15)  +
+  scale_x_continuous(limits = c(0,20), sec.axis = dup_axis(labels=NULL, breaks=NULL)) +
+  theme_bw() 
+```
+
+```{r echo=FALSE}
+ggsave(filename = "figures/NumberofDOIs_by_PublisherRank.png", dev="png")
+```
+
+
+Look at the top 10 publishers - how many does this capture?
+```{r}
+top10pubs <- by_publisher_dc_collapse_table$publisher[1:10]
+
+by_publisher_dc_collapse_table %>% 
+  group_by(publisher) %>% 
+  summarize(count=sum(Total)) %>% 
+  mutate(intop10pub = publisher %in% top10pubs) %>% 
+  group_by(intop10pub) %>% 
+  summarize(totalDOIs = sum(count), nrepos = n()) %>% 
+  ungroup() %>% 
+  mutate(propDOIs = totalDOIs/sum(totalDOIs)) %>% 
+  kable(digits = 2)
+```
+
+
+```{r}
+top10colors <- c("Harvard Dataverse" = "dodgerblue2",
+                "Zenodo" = "darkorange1",
+                "ICPSR" = "darkcyan",
+                "Dryad" = "lightgray", 
+                "figshare" = "purple", 
+                "Institutional Repository" = "lightblue", 
+                "ENCODE Data Coordination Center" = "gold2", 
+                "Faculty Opinions Ltd" = "darkgreen", 
+                "Taylor & Francis" = "red", 
+                "Neotoma Paleoecological Database" = "pink")
+
+
+
+(by_publisher_plot_collapse <-  by_publisher_collapse %>% 
+    filter(publisher %in% top10pubs) %>% 
+    ggplot(aes(x=institution, y=count, fill=publisher)) +
+    geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
+    scale_fill_manual(values = top10colors, name="Publisher")+
+    guides(fill = guide_legend(title.position = "top")) +
+    #scale_y_continuous(breaks = seq(from = 0, to=5000, by=500)) +
+     scale_y_break(breaks =c(3000, 120000),scales = .15)  +
+    coord_cartesian(ylim = c(0,5000)) +
+    labs(x = "Institution", y="Count of Collapsed DOIs") +
+    theme_bw() +
+    guides(fill = guide_legend(nrow = 3, title.position = "top")) +
+    theme(legend.position = "bottom", legend.title.align = .5))
+
+
+ggsave(by_publisher_plot_collapse, filename = "figures/Counts of DOIs by Institution_DOIcollapsed.png", device = "png",  width = 8, height = 6, units="in")
+```
+
+### Distribution of Top 10 Repos by Institution
+
+```{r}
+
+by_publisher_percent_plot1 <- by_publisher_collapse %>% 
+  group_by(institution) %>% 
+  mutate(Percent = count/sum(count)*100) %>% 
+  filter(publisher %in% top10pubs) %>% 
+  ggplot(aes(x=institution, y=Percent)) +
+  geom_col(aes(fill=publisher)) +
+  scale_fill_manual(values = top10colors, name="Publisher") +
+  labs(x = "Institution", y="Percent of Total Data DOIs") +
+  guides(fill = guide_legend(title.position = "top")) +
+  theme_bw() +
+  theme(legend.position = "bottom", 
+        legend.title.align = .5)
+
+publegend <- get_legend(by_publisher_percent_plot1)
+
+by_publisher_percent_plot1 <- by_publisher_percent_plot1 + theme(legend.position = "none")
+
+by_publisher_percent_plot2 <- by_publisher_collapse %>% 
+  filter(publisher != "ENCODE Data Coordination Center") %>% 
+  group_by(institution) %>% 
+  mutate(Percent = count/sum(count)*100) %>% 
+  filter(publisher %in% top10pubs) %>%
+  ggplot(aes(x=institution, y=Percent)) +
+  geom_col(aes(fill=publisher)) +
+  scale_fill_manual(values = top10colors, name="Publisher") +
+  labs(x = "Institution", y="Percent of Total Data DOIs") +
+  theme_bw() +
+  theme(legend.position = "none", legend.title.align = .5)
+
+# ggsave(plot = by_publisher_percent_plot1, filename="Percent DOIs Top Publisher Percents - With ENCODE.png", device = "png")
+# 
+# ggsave(plot = by_publisher_percent_plot2, filename="Percent DOIs Top Publisher Percents - No ENCODE.png", device = "png")
+
+
+(combined_pub_plots <- plot_grid(plot_grid(by_publisher_percent_plot1,
+                    by_publisher_percent_plot2, 
+                    labels = c("A", "B")), 
+          publegend, 
+          nrow=2, 
+          rel_heights = c(2,.5), 
+          align = "v", 
+          axis = "t"))
+
+ggsave(plot = combined_pub_plots, filename="figures/Percent DOIs Top Publisher Percents.png", device = "png", width = 10.5, units = "in")
+
+```
+
+Overall Proportion of Data/Software DOIs in Top 10 publishers by institution
+
+```{r}
+by_publisher_collapse %>% 
+  group_by(institution) %>% 
+  mutate(Percent = count/sum(count)*100) %>% 
+  filter(publisher %in% top10pubs) %>% 
+  group_by(institution) %>% 
+  summarize(TotalCount = sum(count), TotalPercent = sum(Percent)) %>% 
+  kable(digits =2)
+
+```
+
+### Institutional Graphs - Collapsed {.tabset .tabset-fade .tabset-pills}
+
+#### Cornell
+
+```{r, echo=FALSE}
+by_publisher_collapse %>% 
+  ungroup() %>% 
+  filter(institution == "Cornell") %>% 
+  arrange(desc(count)) %>% 
+  slice_head(n=10) %>% 
+  ggplot(aes(x=publisher, y=count, fill=publisher)) +
+    geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
+    scale_fill_manual(values = top10colors, name="Publisher")+
+    guides(fill = guide_legend(title.position = "top")) +
+    labs(y="Count of Data DOIs - Collapsed", title = "Cornell Top 10 Data Publishers") +
+    coord_flip() +
+    theme_bw() +
+    theme(legend.position = "bottom", legend.title.align = .5)
+```
+
+```{r, echo=F}
+i = "Cornell"
+all_dois_collapsed %>% 
+   filter(institution == i) %>% 
+   group_by(publicationYear, resourceTypeGeneral) %>% 
+   summarize(count=n()) %>% 
+   mutate(publicationYear = factor(publicationYear)) %>% 
+   ggplot(aes(x=publicationYear, y=count, group=resourceTypeGeneral)) +
+   geom_line(stat = "identity", aes(color=resourceTypeGeneral)) +
+   scale_color_discrete( name = "Resource Type") +
+   labs(x="Year", y="Number of DOIs", title=paste(i, "Number of Shared DOIs (2012-2022)"))+
+   theme_bw()
+```
+
+#### Duke
+
+```{r, echo=FALSE}
+by_publisher_collapse %>% 
+  ungroup() %>% 
+  filter(institution == "Duke") %>% 
+  arrange(desc(count)) %>% 
+  slice_head(n=10) %>% 
+  ggplot(aes(x=publisher, y=count, fill=publisher)) +
+    geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
+    scale_fill_manual(values = top10colors, name="Publisher")+
+    guides(fill = guide_legend(title.position = "top")) +
+    labs(y="Count of Data DOIs - Collapsed", title = "Duke Top 10 Data Publishers") +
+    coord_flip() +
+    theme_bw() +
+    theme(legend.position = "bottom", legend.title.align = .5)
+```
+
+```{r, echo=F}
+i = "Duke"
+all_dois_collapsed %>% 
+   filter(institution == i) %>% 
+   mutate(publicationYear = factor(gsub("-", "", publicationYear))) %>%
+   group_by(publicationYear, resourceTypeGeneral) %>% 
+   summarize(count=n()) %>% 
+   ggplot(aes(x=publicationYear, y=count, group=resourceTypeGeneral)) +
+   geom_line(stat = "identity", aes(color=resourceTypeGeneral)) +
+   scale_color_discrete( name = "Resource Type") +
+   labs(x="Year", y="Number of DOIs", title=paste(i, "Number of Shared DOIs (2012-2022)"))+
+   theme_bw()
+```
+
+#### Michigan
+
+```{r, echo=FALSE}
+by_publisher_collapse %>% 
+  ungroup() %>% 
+  filter(institution == "Michigan") %>% 
+  arrange(desc(count)) %>% 
+  slice_head(n=10) %>% 
+  ggplot(aes(x=publisher, y=count, fill=publisher)) +
+    geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
+    scale_fill_manual(values = top10colors, name="Publisher")+
+    guides(fill = guide_legend(title.position = "top")) +
+    labs(y="Count of Data DOIs - Collapsed", title = "Michigan Top 10 Data Publishers") +
+    coord_flip() +
+    theme_bw() +
+    theme(legend.position = "bottom", legend.title.align = .5)
+```
+
+```{r, echo=F}
+i = "Michigan"
+all_dois_collapsed %>% 
+   filter(institution == i) %>% 
+   group_by(publicationYear, resourceTypeGeneral) %>% 
+   summarize(count=n()) %>% 
+   mutate(publicationYear = factor(publicationYear)) %>% 
+   ggplot(aes(x=publicationYear, y=count, group=resourceTypeGeneral)) +
+   geom_line(stat = "identity", aes(color=resourceTypeGeneral)) +
+   scale_color_discrete( name = "Resource Type") +
+  coord_cartesian(ylim=c(0,5000)) +
+   labs(x="Year", y="Number of DOIs", title=paste(i, "Number of Shared DOIs (2012-2022)"), caption = "Note: 2021 bar cut off for scaling (ENCODE)")+
+   theme_bw()
+```
+
+#### Minnesota
+
+```{r, echo=FALSE}
+by_publisher_collapse %>% 
+  ungroup() %>% 
+  filter(institution == "Minnesota") %>% 
+  arrange(desc(count)) %>% 
+  slice_head(n=10) %>% 
+  ggplot(aes(x=publisher, y=count, fill=publisher)) +
+    geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
+    scale_fill_manual(values = top10colors, name="Publisher")+
+    guides(fill = guide_legend(title.position = "top")) +
+    labs(y="Count of Data DOIs - Collapsed", title = "Minnesota Top 10 Data Publishers") +
+    coord_flip() +
+    theme_bw() +
+    theme(legend.position = "bottom", legend.title.align = .5)
+```
+
+```{r, echo=F}
+i = "Minnesota"
+all_dois_collapsed %>% 
+   # filter(resourceTypeGeneral == "Dataset" | resourceTypeGeneral == "Software") %>% 
+   # filter(publisher != "ENCODE Data Coordination Center", 
+   #       publisher != "Faculty Opinions Ltd")  %>% 
+   filter(institution == i) %>% 
+   group_by(publicationYear, resourceTypeGeneral) %>% 
+   summarize(count=n()) %>% 
+   mutate(publicationYear = factor(publicationYear)) %>% 
+   ggplot(aes(x=publicationYear, y=count, group=resourceTypeGeneral)) +
+   geom_line(stat = "identity", aes(color=resourceTypeGeneral)) +
+   scale_color_discrete( name = "Resource Type") +
+   labs(x="Year", y="Number of DOIs", title=paste(i, "Number of Shared DOIs (2012-2022)"))+
+   theme_bw()
+```
+
+#### Virginia Tech
+
+```{r, echo=FALSE}
+by_publisher_collapse %>% 
+  ungroup() %>% 
+  filter(institution == "Virginia Tech") %>% 
+  arrange(desc(count)) %>% 
+  slice_head(n=10) %>% 
+  ggplot(aes(x=publisher, y=count, fill=publisher)) +
+    geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
+    scale_fill_manual(values = top10colors, name="Publisher")+
+    guides(fill = guide_legend(title.position = "top")) +
+    labs(y="Count of Data DOIs - Collapsed", title = "Virginia Tech Top 10 Data Publishers") +
+    coord_flip() +
+    theme_bw() +
+    theme(legend.position = "bottom", legend.title.align = .5)
+```
+
+```{r, echo=F}
+i = "Virginia Tech"
+all_dois_collapsed %>% 
+   # filter(resourceTypeGeneral == "Dataset" | resourceTypeGeneral == "Software") %>% 
+   # filter(publisher != "ENCODE Data Coordination Center", 
+   #       publisher != "Faculty Opinions Ltd")  %>% 
+   filter(institution == i) %>% 
+   group_by(publicationYear, resourceTypeGeneral) %>% 
+   summarize(count=n()) %>% 
+   mutate(publicationYear = factor(publicationYear)) %>% 
+   ggplot(aes(x=publicationYear, y=count, group=resourceTypeGeneral)) +
+   geom_line(stat = "identity", aes(color=resourceTypeGeneral)) +
+   scale_color_discrete( name = "Resource Type") +
+   labs(x="Year", y="Number of DOIs", title=paste(i, "Number of Shared DOIs (2012-2022)"))+
+   theme_bw()
+```
+
+#### Wash U
+
+```{r, echo=FALSE}
+by_publisher_collapse %>% 
+  ungroup() %>% 
+  filter(institution == "Washington U") %>% 
+  arrange(desc(count)) %>% 
+  slice_head(n=10) %>% 
+  ggplot(aes(x=publisher, y=count, fill=publisher)) +
+    geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
+    scale_fill_manual(values = top10colors, name="Publisher")+
+    guides(fill = guide_legend(title.position = "top")) +
+    labs(y="Count of Data DOIs - Collapsed", title = "Wash U Top 10 Data Publishers") +
+    coord_flip() +
+    theme_bw() +
+    theme(legend.position = "bottom", legend.title.align = .5)
+```
+
+```{r, echo=F}
+i = "Washington U"
+all_dois_collapsed %>% 
+   # filter(resourceTypeGeneral == "Dataset" | resourceTypeGeneral == "Software") %>% 
+   # filter(publisher != "ENCODE Data Coordination Center", 
+   #       publisher != "Faculty Opinions Ltd")  %>% 
+   filter(institution == i) %>% 
+   group_by(publicationYear, resourceTypeGeneral) %>% 
+   summarize(count=n()) %>% 
+   mutate(publicationYear = factor(publicationYear)) %>% 
+   ggplot(aes(x=publicationYear, y=count, group=resourceTypeGeneral)) +
+   geom_line(stat = "identity", aes(color=resourceTypeGeneral)) +
+   scale_color_discrete( name = "Resource Type") +
+   labs(x="Year", y="Number of DOIs", title=paste(i, "Number of Shared DOIs (2012-2022)"))+
+   theme_bw()
+```
+
+# Repository Poliferation by Year
+
+How many different publishers are researchers sharing their data and how does this change over time?
+
+```{r}
+by_year_nrepos <- all_dois_collapsed %>% 
+  group_by(publicationYear, publisher, institution) %>% 
+  summarize(nDOIs = n()) %>% 
+  group_by(publicationYear, institution) %>% 
+  summarize(npublishers = n(), totalDOIs = sum(nDOIs))
+
+by_year_nrepos %>% 
+  ggplot(aes(x=publicationYear, y=npublishers, group=institution)) +
+  geom_line(aes(color=institution)) +
+  labs(x="Year", 
+       y="Number of Repositories", 
+       title="Number of Repositories Where Data and Software are Shared Across Time") +
+  theme_bw() +
+  theme(legend.title = element_blank())
+
+```
+
+
+# Further collapse by Version
+
+We can also look at the data collapsed by version of a record. This was motivated because some repositories have multiple entries for the different versions of the same dataset/collection. And some entries have many versions. 
+
+Explore versions
+
+Some Repositories attach "vX" to the doi. 
+```{r}
+all_dois_collapsed <- all_dois_collapsed %>% 
+  mutate(hasversion = grepl("\\.v[[:digit:]]+$", DOI))
+
+
+all_dois_collapsed %>% 
+  filter(hasversion == TRUE) %>% 
+  group_by(publisher, hasversion) %>% 
+  summarize(count=n()) %>% 
+  arrange(desc(count)) %>% 
+  datatable()
+
+```
+
+Some repositories use the "VersionCount" 
+```{r}
+all_dois_collapsed %>% 
+  filter(versionCount > 0) %>% 
+  group_by(publisher) %>% 
+  summarize(count=n(), AvgNversions = round(mean(versionCount),2)) %>% 
+  arrange(desc(count)) %>% 
+  datatable()
+```
+
+Some use "metadataVersion"
+```{r}
+all_dois_collapsed %>% 
+  filter(metadataVersion > 0) %>% 
+  group_by(publisher) %>% 
+  summarize(count=n(), AvgNversions = round(mean(metadataVersion),2)) %>% 
+  arrange(desc(count)) %>% 
+  datatable()
+```
+
+
+How to collapse by version? Maybe that's for another day... 
+
+# DataCite Affiliation data
+
+Look at repositories with affiliation and publication years prior to 2014
+
+DataCite released affiliation as a metadata option on Oct 16. 2014. The repositories with affiliations for things published before then may have been back-updated?
+
+What repositories have publications with affiliation before then?
+```{r}
+all_dois_collapsed %>% 
+  group_by(publisher, publicationYear) %>% 
+  summarize(count=n()) %>% 
+  arrange(publicationYear) %>% 
+  pivot_wider(names_from = publicationYear, 
+              values_from = count) %>% 
+  arrange(2012, 2013, 2014, 2015) %>% 
+  datatable()
+
+```
+
+# Completeness
+
+Looking at fields that are recommended by OSTP and DataCite: 
+
+* Resource Author (creators)
+* Resource Publication Date (publication year)
+* Funder Project Identifier (fundingReferences)
+* Project Funder (fundingReferences)
+* Resource Author Affiliation (creators)
+* Funder Identifier (fundingReferences)
+* Date Created (dates)
+* Resource Publisher (publisher)
+* Rights (rightsList)
+* Abstract (descriptions)
+* Keyword (subjects)
+* Resource Author Affiliation Identifier (creators)
+* Resource Author Identifier (creators)
+* Related Identifiers (relatedIdentifiers)
+
+Subset the data to these fields
+```{r}
+for_metadata <- all_dois_collapsed %>% 
+  select(institution, group, DOI, creators, publicationYear, fundingReferences, dates, publisher, rightsList, descriptions, subjects, relatedIdentifiers) %>% 
+  mutate(RowID = 1:nrow(.))
+
+#create function to return if at least one is not NA or NULL
+atleastonevalid <- function(x) {
+  sum(!is.na(x)) > 0 &
+    sum(x != "") > 0 &
+    sum(x != "NULL") > 0}
+
+```
+
+Creator fields (author name, affiliation, name identifiers, affiliation identifier)
+```{r}
+#each are nested in an item within a list, so need to unnest 
+for_metadata$creators1 <- lapply(for_metadata$creators, function(x) x[[1]])
+
+creators <- for_metadata %>% 
+  select(RowID, publisher, creators1) %>% 
+  unnest(cols = creators1, keep_empty = T) 
+
+#make lists in nameIdentifiers an empty dataframe
+
+
+#make each column of interest a vector
+creators$affiliation1 <- lapply(creators$affiliation, paste, collapse=",")
+creators$nameIdentifier <- lapply(creators$nameIdentifiers, paste, collapse=",")
+
+creator_table <- creators %>% 
+  group_by(RowID) %>% 
+  summarize(has_name = atleastonevalid(name), 
+            has_affiliation = atleastonevalid(affiliation1), 
+            has_nameIdentifier = atleastonevalid(nameIdentifier),
+            count=n())
+
+#Some quick accuracy checks
+noname <- filter(for_metadata, RowID %in% creator_table$RowID[which(creator_table$has_name==FALSE)])
+#seem to be the crossref ones
+```
+
+
+Publication Year and dates
+```{r, warning=FALSE}
+for_metadata$dates1 <-lapply(for_metadata$dates, function(x) x[[1]])
+
+dates <- for_metadata %>% 
+  unnest(dates1, keep_empty = T)
+
+date_table <- dates %>% 
+  pivot_wider(names_from = dateType, 
+              values_from = date, 
+              names_prefix = "date_") %>% 
+  group_by(RowID) %>% 
+  summarize(has_pubYear = atleastonevalid(publicationYear), 
+            has_dateCreated = atleastonevalid(date_Created), 
+            has_dateIssued = atleastonevalid(date_Issued), 
+            has_dateCollected = atleastonevalid(date_Collected))
+
+
+```
+
+
+Funder Information 
+```{r}
+for_metadata$fundingReferences1 <- lapply(for_metadata$fundingReferences, function(x) x[[1]])
+
+#pull out the unique funder variables in the data
+fundervariables <- unique(unlist((lapply(for_metadata$fundingReferences1, function(x) names(x)))))
+
+#add to dataset
+for_metadata <- as.data.frame(for_metadata)
+
+#fill in with whether that variable is present in each row of metadata
+containsfundervar <- lapply(for_metadata$fundingReferences1, function(x) fundervariables %in% names(x))
+names(containsfundervar) <- for_metadata$RowID
+
+for_metadata[,fundervariables] <- do.call(rbind, containsfundervar)
+
+funding_table <- for_metadata %>% 
+  select(RowID, all_of(fundervariables))
+
+```
+
+
+Rights
+```{r}
+for_metadata$rightsList1 <- lapply(for_metadata$rightsList, function(x) x[[1]])
+
+rightsvariables <- unique(unlist((lapply(for_metadata$rightsList1, function(x) names(x)))))
+
+#fill in with whether that variable is present in each row of metadata
+containsrightsvar <- lapply(for_metadata$rightsList1, function(x) rightsvariables %in% names(x))
+names(containsrightsvar) <- for_metadata$RowID
+
+for_metadata[,rightsvariables] <- do.call(rbind, containsrightsvar)
+
+rights_table <- for_metadata %>% 
+  select(RowID, all_of(rightsvariables))
+
+```
+
+
+Descriptions (includes abstract)
+```{r}
+for_metadata$descriptions1 <-lapply(for_metadata$descriptions, function(x) x[[1]])
+
+descvariables <- unique(unlist((lapply(for_metadata$descriptions1, function(x) names(x)))))
+
+#fill in with whether that variable is present in each row of metadata
+containsdescvar <- lapply(for_metadata$descriptions1, function(x) descvariables %in% names(x))
+names(containsdescvar) <- for_metadata$RowID
+
+for_metadata[,descvariables] <- do.call(rbind, containsdescvar)
+
+desc_table <- for_metadata %>% 
+  select(RowID, all_of(descvariables))
+
+
+```
+
+Related identifiers
+```{r}
+for_metadata$relatedIdentifiers <- lapply(for_metadata$relatedIdentifiers, function(x) x[[1]])
+
+idvariables <- unique(unlist((lapply(for_metadata$relatedIdentifiers, function(x) names(x)))))
+
+#fill in with whether that variable is present in each row of metadata
+containsidvar <- lapply(for_metadata$relatedIdentifiers, function(x) idvariables %in% names(x))
+names(containsidvar) <- for_metadata$RowID
+
+for_metadata[,idvariables] <- do.call(rbind, containsidvar)
+
+relid_table <- for_metadata %>% 
+  select(RowID, all_of(idvariables))
+
+
+```
+
+
+Subjects
+```{r}
+for_metadata$subjects <- lapply(for_metadata$subjects, function(x) x[[1]])
+
+subvariables <- unique(unlist((lapply(for_metadata$subjects, function(x) names(x)))))
+
+#fill in with whether that variable is present in each row of metadata
+containssubvar <- lapply(for_metadata$subjects, function(x) subvariables %in% names(x))
+names(containssubvar) <- for_metadata$RowID
+
+for_metadata[,subvariables] <- do.call(rbind, containssubvar)
+
+sub_table <- for_metadata %>% 
+  select(RowID, all_of(subvariables))
+```
+
+Combine all of them and select relevant fields
+```{r}
+all_dois_collapsed_completeness <- for_metadata %>% 
+  select(RowID, DOI,publisher, institution, group) %>% 
+  full_join(creator_table, by="RowID") %>% 
+  full_join(date_table, by="RowID") %>% 
+  full_join(funding_table, by="RowID") %>% 
+  full_join(desc_table, by="RowID") %>% 
+  full_join(relid_table, by="RowID") %>% 
+  full_join(rights_table, by="RowID") %>% 
+  full_join(sub_table, by="RowID") %>% 
+  select(RowID,DOI, publisher, institution,group, has_name, has_affiliation, has_nameIdentifier, has_pubYear, has_dateCreated, funderName, awardNumber, funderIdentifier, description, relatedIdentifier, rights, subject, lang)
+
+```
+
+
+
+Then create dataset with indicators for whether fields have information in them (only indicates presence of information, not quality of information).
+```{r}
+all_dois_collapsed_completenessl <- all_dois_collapsed_completeness %>% 
+  pivot_longer(cols=has_name:lang, 
+               names_to = "variable", 
+               values_to = "value") %>% 
+  mutate(variable = gsub("has_", "", variable))
+
+```
+
+Table of metadata completeness for 10 sample DOIs from each publisher
+
+```{r}
+all_dois_collapsed_completeness %>% 
+  filter(publisher %in% top10pubs) %>% 
+   filter(group != "Affiliation - CrossRef") %>% 
+  select(-RowID, -institution, -group) %>% 
+  group_by(publisher) %>% 
+  slice_head(n=10) %>% 
+  datatable(options = list(
+  pageLength = 20, scrollX = TRUE))
+```
+
+### Completeness of Top DataCite Repositories
+
+```{r}
+by_publisher_complete_dc <- all_dois_collapsed_completenessl %>% 
+  filter(publisher %in% top10pubs) %>% 
+  filter(group != "Affiliation - CrossRef") %>% 
+  group_by(publisher, variable) %>% 
+  summarize(complete = sum(value), total = n()) %>% 
+  mutate(percent_complete = complete/total*100)
+
+#organize the variables by completeness
+compvarorder <- by_publisher_complete_dc %>% 
+  group_by(variable) %>% 
+  summarize(avgcomp = mean(percent_complete, na.rm=T)) %>% 
+  arrange(desc(avgcomp))
+```
+
+```{r}
+(completepub <- by_publisher_complete_dc %>% 
+  mutate(variable = factor(variable, levels = compvarorder$variable)) %>% 
+  ggplot(aes(x=variable, y=percent_complete, group=publisher)) +
+  geom_line(aes(color=publisher), position = position_jitter(height = 1, width = .1), linewidth = 1) +
+  scale_color_manual(values = top10colors, name="Publisher") +
+  labs(x="DataCite Metadata Field", y = "Percent Records Complete") +
+  theme_bw() + 
+  guides(color = guide_legend(nrow = 2, title.position = "top")) +
+  theme(legend.position = "bottom", legend.title.align = .5, 
+        axis.text.x = element_text(angle=90, hjust = 1, vjust = .5)))
+
+ggsave(plot = completepub, filename = "figures/CompletenessData_allDatacite.png", width = 10, height = 5.25, units="in")
+
+```
+
+
+### Completeness of Individual Top Non-IR Repositories {.tabset .tabset-fade .tabset-pills}
+
+
+#### Dryad
+
+```{r, echo=FALSE}
+p = "Dryad"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+#### Figshare
+
+
+```{r, echo=FALSE}
+p = "figshare"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+#### Harvard Dataverse
+
+```{r, echo=FALSE}
+p = "Harvard Dataverse"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+#### ICPSR
+
+```{r, echo=FALSE}
+p = "ICPSR"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+
+#### Zenodo
+
+```{r, echo=FALSE}
+p = "Zenodo"
+
+by_publisher_complete_dc %>% 
+  filter(publisher == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity", aes(fill=publisher)) +
+  scale_fill_manual(values = top10colors[which(names(top10colors) %in% p)], name="Publisher") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip()
+
+```
+
+
+### Completeness of IR Repositories {.tabset .tabset-fade .tabset-pills}
+
+```{r}
+by_publisher_complete_ir <- all_dois_collapsed_completenessl %>% 
+ filter(publisher == "Institutional Repository") %>% 
+  filter(institution != "Duke") %>% 
+  group_by(institution, variable) %>% 
+  summarize(complete = sum(value, na.rm = T), total = n()) %>% 
+  mutate(percent_complete = complete/total*100)
+
+#organize the variables by completeness
+compvarorderIR <- by_publisher_complete_ir %>% 
+  group_by(variable) %>% 
+  summarize(avgcomp = mean(percent_complete, na.rm=T)) %>% 
+  arrange(desc(avgcomp))
+
+instcolors <- c("Cornell" = "#B31B1B", 
+                "Duke" = "#00539B", 
+                "Michigan" = "#FFCB05", # #00274C
+                "Minnesota" = "#7a0019", 
+                "Virginia Tech" = "#E87722", 
+                "Washington U" = "#6c7373")
+
+```
+
+Combined plot for IRs
+
+```{r}
+(completeIRpub <- by_publisher_complete_ir %>% 
+  mutate(variable = factor(variable, levels = compvarorderIR$variable)) %>% 
+  ggplot(aes(x=variable, y=percent_complete, group=institution)) +
+  geom_line(aes(color=institution), position = position_jitter(height = 1, width = .1), linewidth = 1) +
+  scale_color_manual(values = instcolors , name="Institutional Repository") +
+  labs(x="DataCite Metadata Field", y = "Percent Records Complete") +
+  theme_bw() + 
+  guides(color = guide_legend(nrow = 2, title.position = "top")) +
+  theme(legend.position = "bottom", legend.title.align = .5, 
+        axis.text.x = element_text(angle=90, hjust = 1, vjust = .5)))
+
+ggsave(plot = completepub, filename = "figures/CompletenessData_IRDatacite.png", width = 10, height = 5.25, units="in")
+
+```
+
+
+
+#### Cornell
+
+```{r, echo=FALSE}
+p = "Cornell"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip() +
+  theme_bw()
+```
+
+#### Duke
+
+**NOTE: Duke metadata came from CrossRef so this plot is removed**
+
+
+
+#### Michigan
+
+```{r, echo=FALSE}
+p = "Michigan"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip() +
+  theme_bw()
+```
+
+#### Minnesota
+
+```{r, echo=FALSE}
+p = "Minnesota"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip() +
+  theme_bw()
+```
+
+#### Virginia Tech
+
+```{r, echo=FALSE}
+p = "Virginia Tech"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip() +
+  theme_bw()
+```
+
+#### Wash U
+
+```{r, echo=FALSE}
+p = "Washington U"
+
+by_publisher_complete_ir %>% 
+  filter(institution == p) %>% 
+  mutate(variable = factor(variable, levels = variable[order(complete, decreasing = F)])) %>% 
+  ggplot(aes(x=variable, y=complete)) +
+  geom_bar(stat = "identity") +
+  labs(x="Metadata Field", y="Number of DOIs with completed field", title = paste(p, "Metadata Completion")) +
+  coord_flip() +
+  theme_bw()
+```
+
+<!-- ### Look at Funder References across repositories -->
+
+<!-- Look at the proportion of DOIs that have funder references filled out. Because not all data are the result of funding, will look at a similar fields (subjects - non-required field that applies equally to funded and non-funded works, and publication year - a required field to serve as proxy for total numebr of records) as a baseline completeness metric relevant to all DOIs.  -->
+
+
+<!-- ```{r} -->
+<!-- by_publisher_complete_ir %>%  -->
+<!--   rename(publisher = institution) %>%  -->
+<!--   bind_rows(by_publisher_complete_dc) %>%  -->
+<!--   filter(variable %in% c("has_publicationYear", "has_fundingReferences", "has_subjects")) %>%  -->
+<!--   ggplot(aes(x=publisher, y=complete)) + -->
+<!--   geom_bar(stat = "identity", aes(fill=variable), position="dodge") +  -->
+<!--   scale_fill_hue(name="Metadata Field")+ -->
+<!--   coord_flip() + -->
+<!--   labs(x="Repository/Publisher", y="Number of DOIs with completed field") + -->
+<!--   theme_bw() -->
+
+
+<!-- ``` -->
+
+
+# Write out institutional data
+
+Write out CSV files for each institution: 
+
+* All DOIs
+* All DOIs collapsed
+
+```{r, eval=FALSE}
+for (i in unique(all_dois$institution)) {
+  all_dois %>% 
+    filter(institution == i) %>% 
+    write.csv(file=paste0("data_all_dois/All_dois_", i, gsub("-", "", Sys.Date()), ".csv"), row.names = F)
+  
+  all_dois_collapsed %>% 
+    filter(institution == i) %>% 
+    write.csv(file=paste0("data_all_dois/All_dois_collapsed_", i, gsub("-", "", Sys.Date()), ".csv"), row.names = F)
+}
+```
+
+
+<!-- First, clean to unlist some of the fields -->
+<!-- ```{r} -->
+<!-- all_dois_collapsed$has_subjects <- unlist(lapply(all_dois_collapsed$subjects, function(x) length(x[[1]]))) -->
+
+<!-- all_dois_collapsed$has_dates <- unlist(lapply(all_dois_collapsed$dates, function(x) ifelse(length(x) > 0, nrow(x[[1]]), 0))) -->
+
+<!-- all_dois_collapsed$has_relatedIdentifiers <- unlist(lapply(all_dois_collapsed$relatedIdentifiers, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0))) -->
+
+<!-- all_dois_collapsed$has_sizes <- unlist(lapply(all_dois_collapsed$sizes, function(x) length(x[[1]]))) -->
+
+<!-- all_dois_collapsed$has_rightsList <- unlist(lapply(all_dois_collapsed$rightsList, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0))) -->
+
+<!-- all_dois_collapsed$has_descriptions <- unlist(lapply(all_dois_collapsed$descriptions, function(x) ifelse("description" %in% names(x[[1]]), 1, 0))) -->
+
+<!-- all_dois_collapsed$has_geolocations <- unlist(lapply(all_dois_collapsed$geoLocations, function(x) length(x[[1]]))) -->
+
+<!-- all_dois_collapsed$has_fundingReferences <- unlist(lapply(all_dois_collapsed$fundingReferences, function(x) ifelse(length(x[[1]]) > 0, nrow(x[[1]]), 0))) -->
+
+<!-- all_dois_collapsed$has_formats <- unlist(lapply(all_dois_collapsed$formats, function(x) length(x[[1]]))) -->
+<!-- ``` -->
+
+<!-- ## Overall counts by resource type -->
+
+<!-- Counts by resource type -->
+<!-- ```{r} -->
+<!-- by_resource <- all_dois %>%  -->
+<!--   group_by(institution, resourceTypeGeneral) %>%  -->
+<!--   summarize(count=n()) %>%  -->
+<!--   arrange(institution, desc(count))  -->
+<!-- ``` -->
+
+<!-- Create a table of top resources -->
+<!-- ```{r} -->
+<!-- by_resource_table <-  by_resource %>%  -->
+<!--   #filter(resourceTypeGeneral %in% c("Dataset", "Software", "Text", "Image")) %>%  -->
+<!--   pivot_wider(names_from = institution,  -->
+<!--               values_from = count,  -->
+<!--               values_fill = 0) %>%   -->
+<!--   rowwise %>%  -->
+<!--   mutate(Total = sum(c_across(Cornell:`Washington U`))) %>%  -->
+<!--   arrange(desc(Total)) -->
+
+<!-- by_resource_table %>%  -->
+<!--   datatable -->
+<!-- ``` -->
+
+<!-- Write out the resources -->
+<!-- ```{r} -->
+<!-- write.csv(by_resource_table, file = "data_summary_data/Counts of Resource Types by Insitution.csv", row.names = F) -->
+<!-- ``` -->
+
+<!-- ## Data specific DOIs -->
+
+<!-- Subset to only datasets -->
+<!-- ```{r} -->
+<!-- data_dois <- all_dois %>%  -->
+<!--   filter(resourceTypeGeneral == "Dataset")  -->
+<!-- ``` -->
+
+<!-- Data DOIs by publisher -->
+<!-- ```{r} -->
+<!-- by_publisher_data <- data_dois %>%  -->
+<!--   group_by(publisher, institution) %>%  -->
+<!--   summarize(count=n()) %>%  -->
+<!--   arrange(institution, desc(count)) -->
+
+
+<!-- by_publisher_data_table <- by_publisher_data %>%  -->
+<!--   pivot_wider(names_from = institution,  -->
+<!--               values_from = count,  -->
+<!--               values_fill = 0) %>%  -->
+<!--   rowwise %>%  -->
+<!--   mutate(Total = sum(c_across(Cornell:`Washington U`))) %>%  -->
+<!--   arrange(desc(Total)) -->
+
+<!-- by_publisher_data_table %>%  -->
+<!--   datatable() -->
+
+<!-- ``` -->
+
+<!-- Write out the table of data publishers -->
+<!-- ```{r} -->
+<!-- write.csv(by_publisher_data_table, file="data_summary_data/Counts of Data Publishers By Insitituion.csv", row.names = F) -->
+<!-- ``` -->
+
+<!-- After reviewing the repositories, we will remove the Faculty Opinions LTD records (these are reviews of articles, no data attached) and the ENCODE Data Coordination Center (extreme outlier for Michigan in 2022, unclear what the level of DOI assignment is) from further analysis.  -->
+
+<!-- ## Software specific DOIs -->
+
+<!-- Subset to only software (only datacite has software) -->
+<!-- ```{r} -->
+<!-- software_dois <- all_dois %>%  -->
+<!--   filter(resourceTypeGeneral == "Software") -->
+<!-- ``` -->
+
+<!-- ```{r} -->
+<!-- by_publisher_software <- software_dois %>%  -->
+<!--   group_by(publisher, institution) %>%  -->
+<!--   summarize(count=n()) %>%  -->
+<!--   arrange(institution, desc(count)) -->
+
+<!-- by_publisher_software_table <- by_publisher_software %>%  -->
+<!--   pivot_wider(names_from = institution,  -->
+<!--               values_from = count,  -->
+<!--               values_fill = 0) %>%  -->
+<!--   rowwise %>%  -->
+<!--   mutate(Total = sum(c_across(Cornell:`Washington U`))) %>%  -->
+<!--   arrange(desc(Total)) -->
+
+<!-- by_publisher_software_table %>%  -->
+<!--   datatable -->
+<!-- ``` -->
+
+
+<!-- Write out the table of software publishers -->
+<!-- ```{r} -->
+<!-- write.csv(by_publisher_software_table, file="data_summary_data/Counts of Software Publishers By Insitituion.csv", row.names = F) -->
+<!-- ``` -->
+
+<!-- ## Graphs  -->
+
+<!-- ### Top publishers - Data DOIs -->
+
+<!-- Plot publishers by rank, ordered from most DOIs to least (take top 20). Remove Encode and Faculty opinions LTD from the list.  -->
+<!-- ```{r} -->
+<!-- by_publisher_data <- by_publisher_data %>%  -->
+<!--    filter(publisher != "ENCODE Data Coordination Center",  -->
+<!--          publisher != "Faculty Opinions Ltd")  -->
+
+<!-- by_publisher_data_table <- by_publisher_data_table %>%  -->
+<!--   filter(publisher != "ENCODE Data Coordination Center",  -->
+<!--          publisher != "Faculty Opinions Ltd")  -->
+
+<!-- by_publisher_data %>%  -->
+<!--   group_by(publisher) %>%  -->
+<!--   summarize(count=sum(count)) %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   mutate(pubrank = order(count, decreasing = T)) %>%  -->
+<!--   ggplot(aes(x=pubrank, y=count)) + -->
+<!--   geom_bar(stat="identity") + -->
+<!--   scale_x_continuous(limits = c(0,20), n.breaks = 20) + -->
+<!--   labs(x = "Publisher Rank", y="Number of DOIs", title="Number of DOIs by top Publishers")+ -->
+<!--   coord_cartesian(xlim = c(1,20)) + -->
+<!--   theme_bw()  -->
+<!-- ``` -->
+
+<!-- Based on the graph above, it appears that there is a large drop off after the Top 8 publishers. If we look at the Top 8 publishers for the data dois, how many DOIs does this cover? -->
+<!-- ```{r} -->
+<!-- top7pubs <- by_publisher_data_table$publisher[1:7] -->
+
+<!-- by_publisher_data %>%  -->
+<!--   group_by(publisher) %>%  -->
+<!--   summarize(count=sum(count)) %>%  -->
+<!--   mutate(intop7pub = publisher %in% top7pubs) %>%  -->
+<!--   group_by(intop7pub) %>%  -->
+<!--   summarize(totalDOIs = sum(count), nrepos = n()) %>%  -->
+<!--   ungroup() %>%  -->
+<!--   mutate(propDOIs = totalDOIs/sum(totalDOIs)) %>%  -->
+<!--   kable(col.names =  c("In Top 8 Publishers", "Total N DOIs", "Total N Publishers", "Proportion of Total DOIs")) -->
+<!-- ``` -->
+
+<!-- Plotting Number of DOIs in the top 8 publishers by institution -->
+<!-- ```{r, fig.width=11} -->
+<!-- top8colors <- c("Harvard Dataverse" = "dodgerblue2", -->
+<!--                 "Zenodo" = "darkorange1", -->
+<!--                 "ICPSR" = "darkcyan", -->
+<!--                 "Dryad" = "lightgray",  -->
+<!--                 "Qualitative Data Repository" = "gold1", -->
+<!--                 "figshare" = "purple",  -->
+<!--                 "Institutional Repository" = "lightblue") -->
+
+
+<!-- (by_publisher_data_plot <-  by_publisher_data %>%  -->
+<!--     filter(publisher %in% top7pubs) %>%  -->
+<!--     ggplot(aes(x=institution, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top8colors, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     scale_y_continuous(breaks = seq(from = 0, to=5000, by=500)) + -->
+<!--     coord_cartesian(ylim = c(0,5000)) + -->
+<!--     labs(x = "Institution", y="Count of Data DOIs", caption = "Note: Michigan Dataverse bar cutoff for scaling") + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5)) -->
+
+
+<!-- ggsave(by_publisher_data_plot, filename = "figures/Counts of Data DOIs by Institution - ForPaper.png", device = "png",  width = 8, height = 6, units="in") -->
+<!-- ``` -->
+
+
+<!-- ### Institutional Graphs {.tabset .tabset-fade .tabset-pills} -->
+
+
+<!-- #### Cornell -->
+
+<!-- ```{r, echo=FALSE} -->
+<!-- by_publisher_data %>%  -->
+<!--   ungroup() %>%  -->
+<!--   filter(institution == "Cornell") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=8) %>%  -->
+<!--   ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top8colors, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(y="Count of Data DOIs", title = "Cornell Top 8 Data Publishers") + -->
+<!--     coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+<!-- ``` -->
+
+<!-- #### Duke -->
+<!-- ```{r, echo=FALSE} -->
+<!-- by_publisher_data %>%  -->
+<!--   ungroup() %>%  -->
+<!--   filter(institution == "Duke") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=8) %>%  -->
+<!--   ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top8colors, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(y="Count of Data DOIs", title = "Duke Top 8 Data Publishers") + -->
+<!--     coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+<!-- ``` -->
+
+<!-- #### Michigan -->
+
+<!-- ```{r, echo=FALSE} -->
+<!-- by_publisher_data %>%  -->
+<!--   ungroup() %>%  -->
+<!--   filter(institution == "Michigan") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=8) %>%  -->
+<!--   ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top8colors, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(y="Count of Data DOIs", title = "Michigan Top 8 Data Publishers") + -->
+<!--     coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+<!-- ``` -->
+
+<!-- #### Minnesota -->
+
+<!-- ```{r, echo=FALSE} -->
+<!-- by_publisher_data %>%  -->
+<!--   ungroup() %>%  -->
+<!--   filter(institution == "Minnesota") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=8) %>%  -->
+<!--   ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top8colors, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(y="Count of Data DOIs", title = "Minnesota Top 8 Data Publishers") + -->
+<!--     coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+<!-- ``` -->
+
+<!-- #### Virginia Tech -->
+
+<!-- ```{r, echo=FALSE} -->
+<!-- by_publisher_data %>%  -->
+<!--   ungroup() %>%  -->
+<!--   filter(institution == "Virginia Tech") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=8) %>%  -->
+<!--   ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top8colors, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(y="Count of Data DOIs", title = "Virginia Tech Top 8 Data Publishers") + -->
+<!--     coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+<!-- ``` -->
+
+<!-- #### Wash U -->
+
+<!-- ```{r, echo=FALSE} -->
+<!-- by_publisher_data %>%  -->
+<!--   ungroup() %>%  -->
+<!--   filter(institution == "Washington U") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=8) %>%  -->
+<!--   ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top8colors, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(y="Count of Data DOIs", title = "Washington U Top 8 Data Publishers") + -->
+<!--     coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+<!-- ``` -->
+
+<!-- ### Top publishers - Software DOIs -->
+
+<!-- Look at the top software publishers (This excludes CrossRef affiliation data, as software is not a resource type).  -->
+
+<!-- ```{r} -->
+<!-- by_publisher_software %>%  -->
+<!--   group_by(publisher) %>%  -->
+<!--   summarize(count=sum(count)) %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   mutate(pubrank = order(count, decreasing = T)) %>%  -->
+<!--   ggplot(aes(x=pubrank, y=count)) + -->
+<!--   geom_bar(stat="identity") + -->
+<!--   scale_x_continuous(limits = c(0,20), n.breaks = 20) + -->
+<!--   labs(x = "Publisher Rank", y="Number of DOIs", title="Number of Software DOIs by top Publishers")+ -->
+<!--   coord_cartesian(xlim = c(1,20)) + -->
+<!--   theme_bw()  -->
+<!-- ``` -->
+
+<!-- It looks like there is one primary software publisher, but we could also take the top 4 or 5 capture the majority.  -->
+
+<!-- ```{r} -->
+<!-- top6pubs_soft <- by_publisher_software_table$publisher[1:6] -->
+
+<!-- top6colors_soft <- c("Zenodo" = "darkorange1", -->
+<!--                      "Code Ocean" = "darkblue", -->
+<!--                      "Institutional Repository" = "lightblue", -->
+<!--                      "Optica Publishing Group" = "red",  -->
+<!--                      "CoMSES Net" = "pink",  -->
+<!--                      "figshare" = "purple") -->
+
+
+<!-- (by_publisher_software_plot <-  by_publisher_software %>%  -->
+<!--     filter(publisher %in% top6pubs_soft) %>%  -->
+<!--     ggplot(aes(x=institution, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top6colors_soft, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(x = "Institution", y="Count of Software DOIs") + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5)) -->
+
+
+<!-- ggsave(by_publisher_software_plot, filename = "figures/Counts of Software DOIs by Institution.png", device = "png",  width = 8, height = 6, units="in") -->
+
+<!-- ``` -->
+
+<!-- ### Institutional Graphs - Software {.tabset .tabset-fade .tabset-pills} -->
+
+
+<!-- #### Cornell -->
+
+<!-- ```{r ,echo=FALSE} -->
+<!-- by_publisher_software %>%  -->
+<!--    ungroup() %>%  -->
+<!--   filter(institution == "Cornell") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=6) %>%  -->
+<!--     ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top6colors_soft, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(x = "Institution", y="Count of Software DOIs", title = "Cornell Software DOIs") + -->
+<!--    coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+
+
+<!-- ``` -->
+
+<!-- #### Duke -->
+
+<!-- ```{r ,echo=FALSE} -->
+<!-- by_publisher_software %>%  -->
+<!--    ungroup() %>%  -->
+<!--   filter(institution == "Duke") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=6) %>%  -->
+<!--     ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top6colors_soft, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(x = "Institution", y="Count of Software DOIs", title = "DUke Software DOIs") + -->
+<!--    coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+<!-- ``` -->
+
+<!-- #### Michigan -->
+<!-- ```{r ,echo=FALSE} -->
+<!-- by_publisher_software %>%  -->
+<!--    ungroup() %>%  -->
+<!--   filter(institution == "Michigan") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=6) %>%  -->
+<!--     ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top6colors_soft, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(x = "Institution", y="Count of Software DOIs", title = "Michigan Software DOIs") + -->
+<!--    coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+
+
+<!-- ``` -->
+
+<!-- #### Minnesota -->
+
+<!-- ```{r ,echo=FALSE} -->
+<!-- by_publisher_software %>%  -->
+<!--    ungroup() %>%  -->
+<!--   filter(institution == "Minnesota") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=6) %>%  -->
+<!--     ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top6colors_soft, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(x = "Institution", y="Count of Software DOIs", title = "Minnesota Software DOIs") + -->
+<!--    coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+<!-- ``` -->
+
+<!-- #### Virginia Tech -->
+
+<!-- ```{r ,echo=FALSE} -->
+<!-- by_publisher_software %>%  -->
+<!--    ungroup() %>%  -->
+<!--   filter(institution == "Virginia Tech") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=6) %>%  -->
+<!--     ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top6colors_soft, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(x = "Institution", y="Count of Software DOIs", title = "Virginia Tech Software DOIs") + -->
+<!--    coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+
+
+<!-- ``` -->
+
+<!-- #### Wash U -->
+
+<!-- ```{r ,echo=FALSE} -->
+<!-- by_publisher_software %>%  -->
+<!--    ungroup() %>%  -->
+<!--   filter(institution == "Washington U") %>%  -->
+<!--   arrange(desc(count)) %>%  -->
+<!--   slice_head(n=6) %>%  -->
+<!--     ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
+<!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
+<!--     scale_fill_manual(values = top6colors_soft, name="Publisher")+ -->
+<!--     guides(fill = guide_legend(title.position = "top")) + -->
+<!--     labs(x = "Institution", y="Count of Software DOIs", title = "Washington U Software DOIs") + -->
+<!--    coord_flip() + -->
+<!--     theme_bw() + -->
+<!--     theme(legend.position = "bottom", legend.title.align = .5) -->
+
+
+<!-- ``` -->
