@@ -237,6 +237,9 @@ Look at the top 10 publishers - how many does this capture?
 ```{r}
 top10pubs <- by_publisher_dc_collapse_table$publisher[1:10]
 
+#for graph without ENCODE/LTD, grab top 12
+top12pubs <-  by_publisher_dc_collapse_table$publisher[1:12]
+
 by_publisher_dc_collapse_table %>% 
   group_by(publisher) %>% 
   summarize(count=sum(Total)) %>% 
@@ -260,7 +263,16 @@ top10colors <- c("Harvard Dataverse" = "dodgerblue2",
                 "Faculty Opinions Ltd" = "darkgreen", 
                 "Taylor & Francis" = "red", 
                 "Neotoma Paleoecological Database" = "pink")
-
+top12colors <- c("Harvard Dataverse" = "dodgerblue2",
+                "Zenodo" = "darkorange1",
+                "ICPSR" = "darkcyan",
+                "Dryad" = "lightgray", 
+                "figshare" = "purple", 
+                "Institutional Repository" = "lightblue", 
+                "Taylor & Francis" = "red", 
+                "Neotoma Paleoecological Database" = "pink", 
+                "VTTI" = "lightgreen", 
+                "MassIVE" = "darkblue")
 
 
 (by_publisher_plot_collapse <-  by_publisher_collapse %>% 
@@ -293,31 +305,35 @@ by_publisher_percent_plot1 <- by_publisher_collapse %>%
   geom_col(aes(fill=publisher)) +
   scale_fill_manual(values = top10colors, name="Publisher") +
   labs(x = "Institution", y="Percent of Total Data DOIs") +
-  guides(fill = guide_legend(title.position = "top")) +
+  guides(fill = guide_legend(title.position = "top",
+                             nrow=3)) +
   theme_bw() +
   theme(legend.position = "bottom", 
-        legend.title.align = .5)
+        legend.title.align = .5) 
+
+ggsave(plot = by_publisher_percent_plot1, filename="figures/Percent DOIs Top Publisher Percents - With ENCODE.png", device = "png", width = 8, height = 5.29, units = "in")
 
 publegend <- get_legend(by_publisher_percent_plot1)
 
 by_publisher_percent_plot1 <- by_publisher_percent_plot1 + theme(legend.position = "none")
 
 by_publisher_percent_plot2 <- by_publisher_collapse %>% 
-  filter(publisher != "ENCODE Data Coordination Center") %>% 
+  filter(publisher != "ENCODE Data Coordination Center", 
+         publisher != "Faculty Opinions Ltd") %>% 
   group_by(institution) %>% 
   mutate(Percent = count/sum(count)*100) %>% 
-  filter(publisher %in% top10pubs) %>%
+  filter(publisher %in% top12pubs) %>%
   ggplot(aes(x=institution, y=Percent)) +
   geom_col(aes(fill=publisher)) +
-  scale_fill_manual(values = top10colors, name="Publisher") +
+  scale_fill_manual(values = top12colors, name="Publisher") +
   labs(x = "Institution", y="Percent of Total Data DOIs") +
   theme_bw() +
-  theme(legend.position = "none", legend.title.align = .5)
+  theme(legend.position = "bottom", legend.title.align = .5)
+  
+ggsave(plot = by_publisher_percent_plot2, filename="figures/Percent DOIs Top Publisher Percents - No ENCODE.png", device = "png", width = 8.5, height = 5.29, units = "in")
 
-# ggsave(plot = by_publisher_percent_plot1, filename="Percent DOIs Top Publisher Percents - With ENCODE.png", device = "png")
-# 
-# ggsave(plot = by_publisher_percent_plot2, filename="Percent DOIs Top Publisher Percents - No ENCODE.png", device = "png")
-
+by_publisher_percent_plot2 <- by_publisher_percent_plot2 +
+  theme(legend.position = "none")
 
 (combined_pub_plots <- plot_grid(plot_grid(by_publisher_percent_plot1,
                     by_publisher_percent_plot2, 

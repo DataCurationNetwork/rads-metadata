@@ -110,15 +110,15 @@
 "Journal of Human Resources",1,0,0,0,0,0,1,100
 "Mohonk Preserve",1,0,0,0,0,0,1,100
 "MultiSector Dynamics - Living, Intuitive, Value-adding, Environment",1,0,0,0,0,0,1,100
-"National Institute of Standards and Technology",1,0,0,0,0,0,1,100
 "NOAA National Centers for Environmental Information",1,0,0,0,0,0,1,100
-"Universität Konstanz",1,0,0,0,0,0,1,100
+"National Institute of Standards and Technology",1,0,0,0,0,0,1,100
 "University of Massachusetts Amherst",1,0,0,0,0,0,1,100
+"Universität Konstanz",1,0,0,0,0,0,1,100
 "Center for International Forestry Research (CIFOR)",0,1,0,0,0,0,1,100
 "Environmental System Science Data Infrastructure for a Virtual Ecosystem; Net Methylation Potential of Mercury Sulfides for Different Groups of the Methylating Microbial Community",0,1,0,0,0,0,1,100
 "Jülich DATA",0,1,0,0,0,0,1,100
-"National Data Archive on Child Abuse and Neglect (NDACAN)",0,1,0,0,0,0,1,100
 "NILU - Norsk Institutt for Luftforskning",0,1,0,0,0,0,1,100
+"National Data Archive on Child Abuse and Neglect (NDACAN)",0,1,0,0,0,0,1,100
 "Oxford Brookes University",0,1,0,0,0,0,1,100
 "Pfizer",0,1,0,0,0,0,1,100
 "SEANOE",0,1,0,0,0,0,1,100
@@ -135,7 +135,6 @@
 "NASA Planetary Data System",0,0,1,0,0,0,1,100
 "National Data Archive on Child Abuse and Neglect",0,0,1,0,0,0,1,100
 "Natural History Museum",0,0,1,0,0,0,1,100
-"physionet.org",0,0,1,0,0,0,1,100
 "Publisher",0,0,1,0,0,0,1,100
 "Sandia National Laboratories (SNL-NM), Albuquerque, NM (United States)",0,0,1,0,0,0,1,100
 "UCLA Dataverse",0,0,1,0,0,0,1,100
@@ -145,13 +144,14 @@
 "University of Miami Libraries",0,0,1,0,0,0,1,100
 "University of Michigan Museum of Paleontology",0,0,1,0,0,0,1,100
 "Utah State University",0,0,1,0,0,0,1,100
+"physionet.org",0,0,1,0,0,0,1,100
 "Κατάλογος Δεδομένων SoDaNet",0,0,1,0,0,0,1,100
 "AmeriFlux; University of Minnesota; USDA- Forest Service",0,0,0,1,0,0,1,100
 "AmeriFlux; University of Minnesota; USDA-Forest Service",0,0,0,1,0,0,1,100
 "AmeriFlux; University of Minnesota; USDA-Forest Service-International Programs",0,0,0,1,0,0,1,100
+"EOL Data Support. UCAR/NCAR - Earth Observing Laboratory",0,0,0,1,0,0,1,100
 "Environmental System Science Data Infrastructure for a Virtual Ecosystem; AmeriFlux",0,0,0,1,0,0,1,100
 "Environmental System Science Data Infrastructure for a Virtual Ecosystem; AmeriFlux Network Management Project",0,0,0,1,0,0,1,100
-"EOL Data Support. UCAR/NCAR - Earth Observing Laboratory",0,0,0,1,0,0,1,100
 "Forest Service Research Data Archive",0,0,0,1,0,0,1,100
 "Geology",0,0,0,1,0,0,1,100
 "Global Carbon Project",0,0,0,1,0,0,1,100
@@ -169,8 +169,8 @@
 "Univeristy of Leeds",0,0,0,0,1,0,1,100
 "Virginia Polytechnic Inst. and State Univ. (Virginia Tech), Blacksburg, VA (United States)",0,0,0,0,1,0,1,100
 "Digital Commons @ Becker, Data and Supporting Files",0,0,0,0,0,1,1,100
-"Digital Commons@Becker, Data and Supporting files",0,0,0,0,0,1,1,100
 "Digital Commons@Becker, Data and Supporting Files",0,0,0,0,0,1,1,100
+"Digital Commons@Becker, Data and Supporting files",0,0,0,0,0,1,1,100
 "Environmental System Science Data Infrastructure for a Virtual Ecosystem; Trace Metal Dynamics and Limitations on Biogeochemical Cycling in Wetland Soils and Hyporheic Zones, PI Jeffrey G. Catalano",0,0,0,0,0,1,1,100
 "ForestPlots.net",0,0,0,0,0,1,1,100
 "Open Data Repository",0,0,0,0,0,1,1,100
