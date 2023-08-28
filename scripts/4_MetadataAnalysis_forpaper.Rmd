@@ -62,6 +62,9 @@ all_dois <- combined_dois
 
 #re-factor group so that datacite appears before cross ref
 all_dois$group <- factor(all_dois$group, levels = c("Affiliation - Datacite", "Affiliation - CrossRef", "IR_publisher"))
+
+#rename "Washington U" --> WashU
+all_dois$institution[which(all_dois$institution == "Washington U")] <- "WashU"
 ```
 
 # Collapse DOIs by container 
@@ -175,7 +178,7 @@ by_publisher_collapse_table <- by_publisher_collapse %>%
               values_from = count, 
               values_fill = 0) %>% 
   rowwise %>% 
-  mutate(Total = sum(c_across(Cornell:`Washington U`))) %>%
+  mutate(Total = sum(c_across(Cornell:`WashU`))) %>%
   ungroup() %>% 
    arrange(desc(Total)) %>% 
   mutate(Cumulative_Percent = round(cumsum(Total)/sum(Total)*100, 1))
@@ -209,7 +212,7 @@ by_publisher_dc_collapse_table <- by_publisher_collapse %>%
               values_from = count, 
               values_fill = 0) %>% 
   rowwise %>% 
-  mutate(Total = sum(c_across(Cornell:`Washington U`))) %>% 
+  mutate(Total = sum(c_across(Cornell:`WashU`))) %>% 
   arrange(desc(Total))
 ```
 
@@ -309,7 +312,7 @@ top12colors <- c("Harvard Dataverse" = "dodgerblue2",
 ggsave(by_publisher_plot_collapse, filename = "figures/Counts of DOIs by Institution_DOIcollapsed.png", device = "png",  width = 8, height = 6, units="in")
 ```
 
-Figure 3, try 2: 
+#### Figure 3
 ```{r}
 (by_publisher_plot_collapse2 <-  by_publisher_collapse %>% 
     filter(publisher %in% top10pubs) %>% 
@@ -322,14 +325,15 @@ Figure 3, try 2:
      #scale_y_break(breaks =c(3000, 120000),scales = .15)  +
     #coord_cartesian(ylim = c(0,5000)) +
    coord_flip(ylim = c(0,4000))+
-   facet_wrap(~institution)+
-    labs(x = "Publisher", y="Count of data and sofware DOIs", caption = "*Michigan ENCODE bar truncated for visualization") +
+   facet_wrap(~institution, scales = "free_x")+
+    labs(x = "Publisher", y="Count of data and software DOIs", caption = "*Michigan ENCODE bar truncated for visualization") +
     theme_bw() +
-    theme(legend.position = "bottom", legend.title.align = .5))
+    theme(legend.position = "bottom", legend.title.align = .5, 
+          text = element_text(family = "Arial", size=10)))
 
-ggsave(by_publisher_plot_collapse2, filename = "figures/fig3_DOI_by_Institution.png", device = "png",  width = 8, height = 6, units="in")
+ggsave(by_publisher_plot_collapse2, filename = "figures/fig3_DOI_by_Institution.png", device = "png",  width = 8, height = 6, units="in", dpi = 300)
 
-ggsave(by_publisher_plot_collapse2, filename = "figures/fig3_DOI_by_Institution.tif", device = "tiff",  width = 8, height = 6, units="in")
+ggsave(by_publisher_plot_collapse2, filename = "figures/fig3_DOI_by_Institution.tif", device = "tiff",  width = 8, height = 6, units="in",  dpi = 300)
 
 ```
 
@@ -388,6 +392,7 @@ ggsave(plot = combined_pub_plots, filename="figures/Percent DOIs Top Publisher P
 
 ```
 
+#### Figure 4
 Try in B&W safe format with an "other" bar. 
 ```{r}
 top10colorsother <- c(top10colors, "Other" = "darkgray")
@@ -408,15 +413,21 @@ names(top12colorsotherLabels) <- names(top12colorsother)
 
 ##LEGEND PLOT
 #do a temp plot for the legend with all the repositories on it
-plotforlegend <- by_publisher_collapse %>% 
-  group_by(institution) %>% 
-  mutate(Percent = count/sum(count)*100) %>% 
-  filter(publisher %in% top12pubs) %>% 
+dataforlegend <- by_publisher_collapse %>% 
+  mutate(publisher = ifelse(publisher %in% top12pubs, publisher, "Other"), 
+         institution = ifelse(institution == "WashU", "WashU", institution)) %>% 
+    group_by(institution, publisher) %>% 
+    summarize(count = sum(count)) %>% 
+   mutate(Percent = count/sum(count)*100) %>%
+  full_join(pubshortnames, by="publisher") %>% 
+  filter(!is.na(institution))
+
+plotforlegend <- dataforlegend %>% 
   ggplot(aes(x=institution, y=Percent)) +
   geom_col(aes(fill=publisher)) +
   scale_fill_manual(values = c(top10colors, top12colorsother), name="Publisher", labels = c(top10colorsotherLabels, top12colorsotherLabels)) +
   guides(fill = guide_legend(title.position = "top",
-                             nrow=3)) +
+                             nrow=4)) +
   theme_bw() +
   theme(legend.position = "bottom", 
         legend.title.align = .5) 
@@ -427,12 +438,14 @@ publegend <- get_legend(plotforlegend)
 ##PLOT A
 plotAdata <-  by_publisher_collapse %>% 
   mutate(publisher = ifelse(publisher %in% top10pubs, publisher, "Other"), 
-         institution = ifelse(institution == "Washington U", "Wash U", institution)) %>%
+         institution = ifelse(institution == "WashU", "WashU", institution)) %>%
     group_by(institution, publisher) %>% 
     summarize(count = sum(count)) %>% 
    mutate(Percent = count/sum(count)*100) %>%
   left_join(pubshortnames, by="publisher") %>% 
-    mutate(publisher = factor(publisher, levels=rev(c(top10pubs, "Other"))))
+    mutate(publisher = factor(publisher, levels=rev(c(top10pubs, "Other")))) %>% 
+  #remove short name labels if small counts
+  mutate(shortname = ifelse(Percent < 4, "", shortname))
 
 (by_publisher_percent_plot1a <- plotAdata %>% 
   ggplot(aes(x=institution, y=Percent)) +
@@ -445,7 +458,8 @@ plotAdata <-  by_publisher_collapse %>%
                              nrow=3)) +
   theme_bw() +
   theme(legend.position = "bottom", 
-        legend.title.align = .5) )
+        legend.title.align = .5,
+  text = element_text(family = "Arial", size=10)))
 
 #ggsave(plot = by_publisher_percent_plot1, filename="figures/Percent DOIs Top Publisher Percents - With ENCODE.png", device = "png", width = 8, height = 5.29, units = "in")
 
@@ -456,7 +470,7 @@ by_publisher_percent_plot1a <- by_publisher_percent_plot1a + theme(legend.positi
 ### PLOT B
 plotBdata <- by_publisher_collapse %>% 
   mutate(publisher = ifelse(publisher %in% top12pubs, publisher, "Other"), 
-         institution = ifelse(institution == "Washington U", "Wash U", institution)) %>% 
+         institution = ifelse(institution == "WashU", "Wash U", institution)) %>% 
   filter(publisher != "ENCODE Data Coordination Center", 
          publisher != "Faculty Opinions Ltd") %>% 
     group_by(institution, publisher) %>% 
@@ -464,7 +478,9 @@ plotBdata <- by_publisher_collapse %>%
    mutate(Percent = count/sum(count)*100) %>%
   full_join(pubshortnames, by="publisher") %>% 
     mutate(publisher = factor(publisher, levels=rev(c(top12pubs, "Other")))) %>% 
-  filter(!is.na(institution))
+  filter(!is.na(institution)) %>% 
+  #remove short name labels if small counts
+  mutate(shortname = ifelse(Percent < 4, "", shortname))
 
 (by_publisher_percent_plot2a <- plotBdata %>% 
   ggplot(aes(x=institution, y=Percent)) +
@@ -477,7 +493,8 @@ plotBdata <- by_publisher_collapse %>%
                              nrow=3)) +
   theme_bw() +
   theme(legend.position = "bottom", 
-        legend.title.align = .5))
+        legend.title.align = .5, 
+        text = element_text(family = "Arial", size=10)))
 
 #ggsave(plot = by_publisher_percent_plot2, filename="figures/Percent DOIs Top Publisher Percents - No ENCODE.png", device = "png", width = 8.5, height = 5.29, units = "in")
 
@@ -490,11 +507,12 @@ by_publisher_percent_plot2a <- by_publisher_percent_plot2a +
                     labels = c("A", "B")), 
           publegend, 
           nrow=2, 
-          rel_heights = c(2,.5), 
+          rel_heights = c(2,.5),
           align = "v", 
           axis = "t"))
 
-ggsave(plot = combined_pub_plots, filename="figures/Fig4_DOIDistribution.png", device = "png", width = 10.5, height = 8, units = "in")
+ggsave(plot = combined_pub_plots, filename="figures/Fig4_DOIDistribution.png", device = "png", width = 8.5, height = 6, units = "in",  dpi = 300, bg="white")
+ggsave(plot = combined_pub_plots, filename="figures/Fig4_DOIDistribution.tif", device = "tiff", width = 8.5, height = 6, units = "in",  dpi = 300, bg="white")
 
 ```
 
@@ -686,7 +704,7 @@ all_dois_collapsed %>%
 ```{r, echo=FALSE}
 by_publisher_collapse %>% 
   ungroup() %>% 
-  filter(institution == "Washington U") %>% 
+  filter(institution == "WashU") %>% 
   arrange(desc(count)) %>% 
   slice_head(n=10) %>% 
   ggplot(aes(x=publisher, y=count, fill=publisher)) +
@@ -700,7 +718,7 @@ by_publisher_collapse %>%
 ```
 
 ```{r, echo=F}
-i = "Washington U"
+i = "WashU"
 all_dois_collapsed %>% 
    # filter(resourceTypeGeneral == "Dataset" | resourceTypeGeneral == "Software") %>% 
    # filter(publisher != "ENCODE Data Coordination Center", 
@@ -745,7 +763,7 @@ instcolors <- c("Cornell" = "#B31B1B",
                 "Michigan" = "#FFCB05", # #00274C
                 "Minnesota" = "#7a0019", 
                 "Virginia Tech" = "#E87722", 
-                "Washington U" = "#6c7373")
+                "WashU" = "#6c7373")
 
 
 by_year_nrepos %>% 
@@ -759,15 +777,15 @@ by_year_nrepos %>%
   annotate(geom="text", x= 11.2, y=(by_year_nrepos$npublishers[which(by_year_nrepos$institution== "Duke" & by_year_nrepos$publicationYear == 2022)]+1), label="Duke", hjust=0) +
   annotate(geom="text", x= 11.2, y=(by_year_nrepos$npublishers[which(by_year_nrepos$institution== "Michigan" & by_year_nrepos$publicationYear == 2022)]+1), label="Michigan", hjust=0) +
   annotate(geom="text", x= 11.2, y=(by_year_nrepos$npublishers[which(by_year_nrepos$institution== "Minnesota" & by_year_nrepos$publicationYear == 2022)]-1), label="Minnesota", hjust=0) +
-  annotate(geom="text", x= 11.2, y=(by_year_nrepos$npublishers[which(by_year_nrepos$institution== "Washington U" & by_year_nrepos$publicationYear == 2022)]-.5), label="Wash U", hjust=0) +
+  annotate(geom="text", x= 11.2, y=(by_year_nrepos$npublishers[which(by_year_nrepos$institution== "WashU" & by_year_nrepos$publicationYear == 2022)]-.5), label="WashU", hjust=0) +
    coord_cartesian(clip = "off")+
   theme_classic() +
   theme(panel.grid = element_blank(), 
         plot.margin = unit(c(1,5,1,1), "lines"), 
-        text = element_text)
+        text = element_text(family = "Arial", size=10))
 
-ggsave(filename="figures/Fig2_N_Repo_by_Year.png", device = "png")
-ggsave(filename="figures/Fig2_N_Repo_by_Year.tiff", device = "tiff")
+ggsave(filename="figures/Fig2_N_Repo_by_Year.png", device = "png",  dpi = 300)
+ggsave(filename="figures/Fig2_N_Repo_by_Year.tiff", device = "tiff",  dpi = 300)
 
 ```
 
@@ -842,10 +860,11 @@ Looking at fields that are recommended by OSTP Only:
 * DOI
 * Creators: 
   * Resource Author (creators)
-  * Resource Author Affiliation Identifier (creators)
   * Resource Author Identifier (creators)
 * Publication year: Resource Publication Date (publication year)
-* Affiliation: Resource Author Affiliation (creators)
+* Affiliation: 
+  * Resource Author Affiliation (creators)
+  * ROR? 
 * Related Identifiers (relatedIdentifiers)
 * Funding References: 
   * Funder Project Identifier (fundingReferences)
@@ -857,7 +876,7 @@ Looking at fields that are recommended by OSTP Only:
 Subset the data to these fields
 ```{r}
 for_metadata <- all_dois_collapsed %>% 
-  select(institution, publisher, group, DOI, creators, publicationYear, relatedIdentifiers, fundingReferences) %>% 
+  select(institution, publisher, group, DOI, creators, publicationYear, relatedIdentifiers, fundingReferences, dates) %>% 
   mutate(RowID = 1:nrow(.))
 
 #create function to return if at least one is not NA or NULL
@@ -940,41 +959,41 @@ funding_table <- for_metadata %>%
 ```
 
 
-Rights
-```{r}
-for_metadata$rightsList1 <- lapply(for_metadata$rightsList, function(x) x[[1]])
+<!-- Rights -->
+<!-- ```{r} -->
+<!-- for_metadata$rightsList1 <- lapply(for_metadata$rightsList, function(x) x[[1]]) -->
 
-rightsvariables <- unique(unlist((lapply(for_metadata$rightsList1, function(x) names(x)))))
+<!-- rightsvariables <- unique(unlist((lapply(for_metadata$rightsList1, function(x) names(x))))) -->
 
-#fill in with whether that variable is present in each row of metadata
-containsrightsvar <- lapply(for_metadata$rightsList1, function(x) rightsvariables %in% names(x))
-names(containsrightsvar) <- for_metadata$RowID
+<!-- #fill in with whether that variable is present in each row of metadata -->
+<!-- containsrightsvar <- lapply(for_metadata$rightsList1, function(x) rightsvariables %in% names(x)) -->
+<!-- names(containsrightsvar) <- for_metadata$RowID -->
 
-for_metadata[,rightsvariables] <- do.call(rbind, containsrightsvar)
+<!-- for_metadata[,rightsvariables] <- do.call(rbind, containsrightsvar) -->
 
-rights_table <- for_metadata %>% 
-  select(RowID, all_of(rightsvariables))
+<!-- rights_table <- for_metadata %>%  -->
+<!--   select(RowID, all_of(rightsvariables)) -->
 
-```
-
-
-Descriptions (includes abstract)
-```{r}
-for_metadata$descriptions1 <-lapply(for_metadata$descriptions, function(x) x[[1]])
-
-descvariables <- unique(unlist((lapply(for_metadata$descriptions1, function(x) names(x)))))
-
-#fill in with whether that variable is present in each row of metadata
-containsdescvar <- lapply(for_metadata$descriptions1, function(x) descvariables %in% names(x))
-names(containsdescvar) <- for_metadata$RowID
-
-for_metadata[,descvariables] <- do.call(rbind, containsdescvar)
-
-desc_table <- for_metadata %>% 
-  select(RowID, all_of(descvariables))
+<!-- ``` -->
 
 
-```
+<!-- Descriptions (includes abstract) -->
+<!-- ```{r} -->
+<!-- for_metadata$descriptions1 <-lapply(for_metadata$descriptions, function(x) x[[1]]) -->
+
+<!-- descvariables <- unique(unlist((lapply(for_metadata$descriptions1, function(x) names(x))))) -->
+
+<!-- #fill in with whether that variable is present in each row of metadata -->
+<!-- containsdescvar <- lapply(for_metadata$descriptions1, function(x) descvariables %in% names(x)) -->
+<!-- names(containsdescvar) <- for_metadata$RowID -->
+
+<!-- for_metadata[,descvariables] <- do.call(rbind, containsdescvar) -->
+
+<!-- desc_table <- for_metadata %>%  -->
+<!--   select(RowID, all_of(descvariables)) -->
+
+
+<!-- ``` -->
 
 Related identifiers
 ```{r}
@@ -995,21 +1014,21 @@ relid_table <- for_metadata %>%
 ```
 
 
-Subjects
-```{r}
-for_metadata$subjects <- lapply(for_metadata$subjects, function(x) x[[1]])
+<!-- Subjects -->
+<!-- ```{r} -->
+<!-- for_metadata$subjects <- lapply(for_metadata$subjects, function(x) x[[1]]) -->
 
-subvariables <- unique(unlist((lapply(for_metadata$subjects, function(x) names(x)))))
+<!-- subvariables <- unique(unlist((lapply(for_metadata$subjects, function(x) names(x))))) -->
 
-#fill in with whether that variable is present in each row of metadata
-containssubvar <- lapply(for_metadata$subjects, function(x) subvariables %in% names(x))
-names(containssubvar) <- for_metadata$RowID
+<!-- #fill in with whether that variable is present in each row of metadata -->
+<!-- containssubvar <- lapply(for_metadata$subjects, function(x) subvariables %in% names(x)) -->
+<!-- names(containssubvar) <- for_metadata$RowID -->
 
-for_metadata[,subvariables] <- do.call(rbind, containssubvar)
+<!-- for_metadata[,subvariables] <- do.call(rbind, containssubvar) -->
 
-sub_table <- for_metadata %>% 
-  select(RowID, all_of(subvariables))
-```
+<!-- sub_table <- for_metadata %>%  -->
+<!--   select(RowID, all_of(subvariables)) -->
+<!-- ``` -->
 
 Combine all of them and select relevant fields
 ```{r}
@@ -1018,11 +1037,8 @@ all_dois_collapsed_completeness <- for_metadata %>%
   full_join(creator_table, by="RowID") %>% 
   full_join(date_table, by="RowID") %>% 
   full_join(funding_table, by="RowID") %>% 
-  full_join(desc_table, by="RowID") %>% 
   full_join(relid_table, by="RowID") %>% 
-  full_join(rights_table, by="RowID") %>% 
-  full_join(sub_table, by="RowID") %>% 
-  select(RowID,DOI, publisher, institution,group, has_name, has_affiliation, has_nameIdentifier, has_pubYear, has_dateCreated, funderName, awardNumber, funderIdentifier, description, relatedIdentifier, rights, subject, lang)
+  select(RowID,DOI, publisher, institution,group, has_name, has_affiliation, has_nameIdentifier, has_pubYear, funderName, awardNumber, funderIdentifier,  relatedIdentifier)
 
 ```
 
@@ -1031,7 +1047,7 @@ all_dois_collapsed_completeness <- for_metadata %>%
 Then create dataset with indicators for whether fields have information in them (only indicates presence of information, not quality of information).
 ```{r}
 all_dois_collapsed_completenessl <- all_dois_collapsed_completeness %>% 
-  pivot_longer(cols=has_name:lang, 
+  pivot_longer(cols=has_name:relatedIdentifier, 
                names_to = "variable", 
                values_to = "value") %>% 
   mutate(variable = gsub("has_", "", variable))
@@ -1044,6 +1060,8 @@ Table of metadata completeness for 10 sample DOIs from each publisher
 all_dois_collapsed_completeness %>% 
   filter(publisher %in% top10pubs) %>% 
    filter(group != "Affiliation - CrossRef") %>% 
+  #also remove DOIs from DUke institutional repo (CrossRef)
+  filter(!(publisher == "Institutional Repository" & institution == "Duke")) %>% 
   select(-RowID, -institution, -group) %>% 
   group_by(publisher) %>% 
   slice_head(n=10) %>% 
@@ -1057,15 +1075,25 @@ all_dois_collapsed_completeness %>%
 by_publisher_complete_dc <- all_dois_collapsed_completenessl %>% 
   filter(publisher %in% top10pubs) %>% 
   filter(group != "Affiliation - CrossRef") %>% 
+  #also remove DOIs from DUke institutional repo (CrossRef)
+  filter(!(publisher == "Institutional Repository" & institution == "Duke")) %>% 
   group_by(publisher, variable) %>% 
-  summarize(complete = sum(value), total = n()) %>% 
+  summarize(complete = sum(value, na.rm = T), total = n()) %>% 
   mutate(percent_complete = complete/total*100)
 
 #organize the variables by completeness
 compvarorder <- by_publisher_complete_dc %>% 
   group_by(variable) %>% 
   summarize(avgcomp = mean(percent_complete, na.rm=T)) %>% 
-  arrange(desc(avgcomp))
+  arrange(desc(avgcomp)) %>% 
+  mutate(variableLabel = case_when(variable == "name" ~ "Creator Name", 
+                                   variable == "pubYear" ~ "Publication Year",
+                                   variable == "affiliation" ~ "Creator Affiliation",
+                                   variable == "relatedIdentifier" ~ "Related Identifiers",
+                                   variable == "nameIdentifier" ~ "Creator Name Identifier",
+                                   variable == "funderName" ~ "Funder Name",
+                                   variable == "awardNumber" ~ "Funder Award Number",
+                                   variable == "funderIdentifier" ~ "Funder Identifier",))
 ```
 
 ```{r}
@@ -1074,6 +1102,7 @@ compvarorder <- by_publisher_complete_dc %>%
   ggplot(aes(x=variable, y=percent_complete, group=publisher)) +
   geom_line(aes(color=publisher), position = position_jitter(height = 1, width = .1), linewidth = 1) +
   scale_color_manual(values = top10colors, name="Publisher") +
+   scale_x_discrete(labels = compvarorder$variableLabel) +
   labs(x="DataCite Metadata Field", y = "Percent Records Complete") +
   theme_bw() + 
   guides(color = guide_legend(nrow = 2, title.position = "top")) +
@@ -1083,6 +1112,88 @@ compvarorder <- by_publisher_complete_dc %>%
 ggsave(plot = completepub, filename = "figures/CompletenessData_allDatacite.png", width = 10, height = 5.25, units="in")
 
 ```
+
+Figure 5, try 2
+```{r}
+(completepub2 <- by_publisher_complete_dc %>% 
+  mutate(variable = factor(variable, levels = compvarorder$variable)) %>% 
+  ggplot(aes(x=variable, y=publisher)) +
+  geom_tile(aes(fill=publisher, alpha=percent_complete)) +
+   scale_fill_manual(values = top10colors, name="Publisher") +
+     scale_x_discrete(labels = compvarorder$variableLabel) +
+   guides(fill="none", alpha = guide_legend("Percent Complete")) +
+   labs(y="Publisher", x="Metadata Field") +
+   theme_bw() + 
+   theme(legend.position = "right", legend.title.align = .5, 
+         text = element_text(family = "Arial", size=10),
+        axis.text.x = element_text(angle=90, hjust = 1, vjust = .5),
+        panel.grid.major = element_blank())
+   )
+ 
+
+ggsave(plot = completepub2, filename = "figures/CompletenessData_allDatacite.png", width = 8, height = 5.25, units="in")
+
+ggsave(plot = completepub2, filename = "figures/CompletenessData_allDatacite.tif", width =8, height = 5.25, units="in", device = "tiff")
+
+
+```
+
+#### Figure 5, option 3 
+```{r}
+(completepub3 <- by_publisher_complete_dc %>% 
+  mutate(variable = factor(variable, levels = compvarorder$variable)) %>% 
+  ggplot(aes(x=variable, y=percent_complete, group=publisher)) +
+  geom_line(aes(color=publisher), position = position_jitter(height = 1, width = .1), linewidth = 1) +
+  scale_color_manual(values = top10colors, name="Publisher") +
+   scale_x_discrete(labels = compvarorder$variableLabel) +
+  labs(x="DataCite Metadata Field", y = "Percent Records Complete") +
+   facet_wrap(~publisher, nrow = 2)+
+  theme_bw() + 
+  guides(color = guide_legend(nrow = 2, title.position = "top")) +
+  theme(legend.position = "none", legend.title.align = .5, 
+        text = element_text(family = "Arial", size=9),
+        axis.text.x = element_text(angle=90, hjust = 1, vjust = .5)))
+
+ggsave(plot = completepub3, filename = "figures/fig5_CompletenessData_allDatacite.png", width = 7.5, height = 4.5, units="in", dpi=300)
+ggsave(plot = completepub3, filename = "figures/fig5_CompletenessData_allDatacite.tif", width = 7.5, device="tiff", height = 4.5, units="in", dpi=300)
+
+```
+
+
+Examine ICPSR's funder fields
+```{r}
+ICPSR_fundercomplete <- all_dois_collapsed_completenessl %>% 
+  filter(publisher == "ICPSR", grepl("funder", variable), value == TRUE)
+
+ICPSR_funderspecific <- all_dois_collapsed %>% 
+  filter(DOI %in% ICPSR_fundercomplete$DOI) %>% 
+  select(DOI, publisher, fundingReferences)
+```
+
+
+#### Table of Completeness by publisher and field
+
+```{r}
+by_publisher_complete_dc %>% 
+  mutate(variable = factor(variable, levels = compvarorder$variable)) %>% 
+  mutate(completepercent = paste0(complete, " (", round(percent_complete,1), "%)")) %>% 
+  select(variable, publisher, completepercent) %>% 
+  pivot_wider(names_from = publisher, 
+              values_from = completepercent) %>% 
+  arrange(variable) %>% 
+  kable()
+
+by_publisher_complete_dc %>% 
+  mutate(variable = factor(variable, levels = compvarorder$variable)) %>% 
+  mutate(completepercent = paste0(complete, " (", round(percent_complete,1), "%)")) %>% 
+  select(variable, publisher, completepercent) %>% 
+  pivot_wider(names_from = publisher, 
+              values_from = completepercent) %>% 
+  arrange(variable) %>% 
+  write.csv(file="data_summary_data/Metadata_completeness_by_Repo.csv", row.names = F)
+```
+
+
 
 
 ### Completeness of Individual Top Non-IR Repositories {.tabset .tabset-fade .tabset-pills}
@@ -1192,7 +1303,7 @@ instcolors <- c("Cornell" = "#B31B1B",
                 "Michigan" = "#FFCB05", # #00274C
                 "Minnesota" = "#7a0019", 
                 "Virginia Tech" = "#E87722", 
-                "Washington U" = "#6c7373")
+                "WashU" = "#6c7373")
 
 ```
 
@@ -1285,7 +1396,7 @@ by_publisher_complete_ir %>%
 #### Wash U
 
 ```{r, echo=FALSE}
-p = "Washington U"
+p = "WashU"
 
 by_publisher_complete_ir %>% 
   filter(institution == p) %>% 
@@ -1377,7 +1488,7 @@ for (i in unique(all_dois$institution)) {
 <!--               values_from = count,  -->
 <!--               values_fill = 0) %>%   -->
 <!--   rowwise %>%  -->
-<!--   mutate(Total = sum(c_across(Cornell:`Washington U`))) %>%  -->
+<!--   mutate(Total = sum(c_across(Cornell:`WashU`))) %>%  -->
 <!--   arrange(desc(Total)) -->
 
 <!-- by_resource_table %>%  -->
@@ -1410,7 +1521,7 @@ for (i in unique(all_dois$institution)) {
 <!--               values_from = count,  -->
 <!--               values_fill = 0) %>%  -->
 <!--   rowwise %>%  -->
-<!--   mutate(Total = sum(c_across(Cornell:`Washington U`))) %>%  -->
+<!--   mutate(Total = sum(c_across(Cornell:`WashU`))) %>%  -->
 <!--   arrange(desc(Total)) -->
 
 <!-- by_publisher_data_table %>%  -->
@@ -1444,7 +1555,7 @@ for (i in unique(all_dois$institution)) {
 <!--               values_from = count,  -->
 <!--               values_fill = 0) %>%  -->
 <!--   rowwise %>%  -->
-<!--   mutate(Total = sum(c_across(Cornell:`Washington U`))) %>%  -->
+<!--   mutate(Total = sum(c_across(Cornell:`WashU`))) %>%  -->
 <!--   arrange(desc(Total)) -->
 
 <!-- by_publisher_software_table %>%  -->
@@ -1624,14 +1735,14 @@ for (i in unique(all_dois$institution)) {
 <!-- ```{r, echo=FALSE} -->
 <!-- by_publisher_data %>%  -->
 <!--   ungroup() %>%  -->
-<!--   filter(institution == "Washington U") %>%  -->
+<!--   filter(institution == "WashU") %>%  -->
 <!--   arrange(desc(count)) %>%  -->
 <!--   slice_head(n=8) %>%  -->
 <!--   ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
 <!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
 <!--     scale_fill_manual(values = top8colors, name="Publisher")+ -->
 <!--     guides(fill = guide_legend(title.position = "top")) + -->
-<!--     labs(y="Count of Data DOIs", title = "Washington U Top 8 Data Publishers") + -->
+<!--     labs(y="Count of Data DOIs", title = "WashU Top 8 Data Publishers") + -->
 <!--     coord_flip() + -->
 <!--     theme_bw() + -->
 <!--     theme(legend.position = "bottom", legend.title.align = .5) -->
@@ -1786,14 +1897,14 @@ for (i in unique(all_dois$institution)) {
 <!-- ```{r ,echo=FALSE} -->
 <!-- by_publisher_software %>%  -->
 <!--    ungroup() %>%  -->
-<!--   filter(institution == "Washington U") %>%  -->
+<!--   filter(institution == "WashU") %>%  -->
 <!--   arrange(desc(count)) %>%  -->
 <!--   slice_head(n=6) %>%  -->
 <!--     ggplot(aes(x=publisher, y=count, fill=publisher)) + -->
 <!--     geom_bar(stat="identity", position=position_dodge(preserve = "single")) + -->
 <!--     scale_fill_manual(values = top6colors_soft, name="Publisher")+ -->
 <!--     guides(fill = guide_legend(title.position = "top")) + -->
-<!--     labs(x = "Institution", y="Count of Software DOIs", title = "Washington U Software DOIs") + -->
+<!--     labs(x = "Institution", y="Count of Software DOIs", title = "WashU Software DOIs") + -->
 <!--    coord_flip() + -->
 <!--     theme_bw() + -->
 <!--     theme(legend.position = "bottom", legend.title.align = .5) -->
