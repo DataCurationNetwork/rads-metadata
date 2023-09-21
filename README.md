@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/500531907.svg)](https://zenodo.org/badge/latestdoi/500531907)
 # RADS Metadata Analysis
 Public repository for the Realities of Academic Data Sharing (RADS) Initiative Metadata analysis project
 
