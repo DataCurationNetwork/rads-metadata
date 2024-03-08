@@ -203,9 +203,67 @@ combined_dois %>%
   group_by(group) %>% 
   summarize(count=n())
 
+## Check DOI duplication
+summary(is.na(combined_dois$DOI))
+summary(is.na(combined_dois$doi))
 
+#which DOIs are NA?
+nadois <- combined_dois[which(is.na(combined_dois$DOI)),]
+#shoudl be ID instead
+
+combined_dois1 <- combined_dois %>% 
+  mutate(DOI = case_when(is.na(DOI) ~ id, 
+                         TRUE ~ DOI))
+
+summary(is.na(combined_dois1$DOI))
+
+#look at duplicates
+summary(duplicated(combined_dois1$DOI))
+
+isdupdoi <- combined_dois1$DOI[which(duplicated(combined_dois1$DOI))]
+
+RemovedDOIdups <- combined_dois1 %>% 
+  filter(DOI %in% isdupdoi) %>%
+  select(institution, DOI, publisher, group, URL, title) 
+
+#keep the IR ones, remove the ones found in datacite (so those are not double counted)
+combined_dois2 <- combined_dois1 %>% 
+  arrange(desc(group)) %>% #arrange so IR is on top
+  group_by(institution, DOI) %>% 
+  mutate(DuplicateToRM = duplicated(DOI))
+
+summary(combined_dois2$DuplicateToRM) #there are 22317 to remove 
+
+combined_dois2 %>% 
+  filter(DuplicateToRM == TRUE) %>% 
+  group_by(institution, group, publisher) %>% 
+  tally() %>% View()
+
+
+#remove the duplicates
+combined_dois3 <- combined_dois2 %>% 
+  filter(DuplicateToRM == FALSE)
+
+combined_dois3 %>% 
+  group_by(publisher) %>% 
+  summarize(count = n()) %>% 
+  arrange(desc(count))
+
+combined_dois3 %>% 
+  group_by(group) %>% 
+  summarize(count=n())
+
+nrow(combined_dois3)
+
+#which publishers are not in the de-duped data?
+RemovedDOIdups$publisher[which(RemovedDOIdups$publisher %in% combined_dois3$publisher == FALSE)]
+  #From 176 to 173 repositories, as some were counted as separate repositoies in Datacite instead of being collapsed into IR (DOIs were double counted)
+# [1] "Washington University in St. Louis"             
+# [2] "Data Repository for the University of Minnesota"
+# [3] "University of Michigan Museum of Paleontology"
+  
 #write out combined data 
-save(combined_dois, file = "data_rdata_files/Combined_ALL_data.Rdata")
+save(combined_dois3, file = "data_rdata_files/Combined_ALL_data.Rdata")
 
 
 

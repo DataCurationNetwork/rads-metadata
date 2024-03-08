@@ -1,44 +1,43 @@
 "publisher","Cornell","Duke","Michigan","Minnesota","Virginia Tech","WashU","Total","Cumulative_Percent"
-"ENCODE Data Coordination Center",12,1006,138566,0,0,0,139584,84.1
-"Faculty Opinions Ltd",674,2574,2516,1682,64,502,8012,88.9
-"Zenodo",1944,975,1471,842,706,640,6578,92.9
-"Dryad",656,469,496,528,158,149,2456,94.4
-"Institutional Repository",208,226,646,769,446,95,2390,95.8
-"figshare",597,238,373,231,296,545,2280,97.2
-"ICPSR",92,125,1178,99,6,49,1549,98.1
-"Harvard Dataverse",251,289,308,123,28,0,999,98.7
-"Taylor & Francis",105,30,75,52,43,155,460,99
-"Neotoma Paleoecological Database",0,4,0,210,0,0,214,99.1
-"VTTI",0,0,1,2,113,0,116,99.2
-"MassIVE",30,34,12,11,1,12,100,99.3
-"SciELO journals",22,12,12,6,10,12,74,99.3
-"Authorea, Inc.",12,10,16,13,0,14,65,99.4
-"Code Ocean",11,17,20,16,0,0,64,99.4
-"Borealis",11,15,9,20,5,0,60,99.4
-"OBIS-SEAMAP",0,49,0,0,0,0,49,99.5
-"Future Science Group",4,2,0,4,22,12,44,99.5
+"ENCODE Data Coordination Center",6,526,117569,0,0,0,118101,82.2
+"Faculty Opinions Ltd",637,2426,2355,1503,64,478,7463,87.4
+"Zenodo",1944,975,1471,842,706,640,6578,92
+"Dryad",655,467,496,526,158,149,2451,93.7
+"figshare",597,238,373,231,296,545,2280,95.3
+"Institutional Repository",175,226,646,692,335,95,2169,96.8
+"ICPSR",92,125,1178,99,6,49,1549,97.9
+"Harvard Dataverse",251,289,308,123,28,0,999,98.6
+"Taylor & Francis",105,30,75,52,43,155,460,98.9
+"Neotoma Paleoecological Database",0,4,0,210,0,0,214,99
+"VTTI",0,0,1,2,113,0,116,99.1
+"MassIVE",30,34,12,11,1,12,100,99.2
+"SciELO journals",22,12,12,6,10,12,74,99.2
+"Code Ocean",11,17,20,16,0,0,64,99.3
+"Borealis",11,15,9,20,5,0,60,99.3
+"OBIS-SEAMAP",0,49,0,0,0,0,49,99.4
+"Future Science Group",4,2,0,4,22,12,44,99.4
+"Authorea, Inc.",6,5,10,7,0,12,40,99.4
 "SAGE Journals",2,2,12,2,0,18,36,99.5
 "KNB Data Repository",19,10,2,2,1,0,34,99.5
 "IEEE DataPort",1,0,15,10,1,4,31,99.5
-"Biological and Chemical Oceanography Data Management Office",6,13,10,0,0,0,29,99.6
-"Optica Publishing Group",0,4,15,0,0,10,29,99.6
-"NASA Space Physics Data Facility",0,0,0,29,0,0,29,99.6
+"Optica Publishing Group",0,4,15,0,0,10,29,99.5
+"NASA Space Physics Data Facility",0,0,0,29,0,0,29,99.5
 "Databrary",15,13,0,0,0,0,28,99.6
 "Virginia Tech Transportation Institute",0,0,0,0,27,0,27,99.6
 "UCAR/NCAR - Earth Observing Laboratory",4,0,21,0,0,0,25,99.6
-"Biological and Chemical Oceanography Data Management Office (BCO-DMO)",5,2,7,10,0,0,24,99.7
-"The Royal Society",10,0,6,0,0,4,20,99.7
+"Biological and Chemical Oceanography Data Management Office (BCO-DMO)",5,2,7,10,0,0,24,99.6
+"Biological and Chemical Oceanography Data Management Office",5,12,6,0,0,0,23,99.6
+"The Royal Society",10,0,6,0,0,4,20,99.6
 "CSIRO",4,1,0,14,0,0,19,99.7
 "DOE Joint Genome Institute",4,6,4,3,0,0,17,99.7
 "UNC Dataverse",1,9,4,2,1,0,17,99.7
 "NSF Arctic Data Center",0,15,0,1,0,0,16,99.7
 "ImmPort",0,9,3,3,0,1,16,99.7
-"Washington University in St. Louis",0,0,0,0,0,16,16,99.7
 "DataverseNL",4,2,3,6,0,0,15,99.7
-"CyVerse Data Commons",12,0,0,2,0,0,14,99.8
-"Geochemistry, Geophysics, Geosystems",1,0,0,12,0,0,13,99.8
-"QDR Main Collection",4,6,2,0,0,0,12,99.8
-"G-Node",0,4,2,6,0,0,12,99.8
+"CyVerse Data Commons",12,0,0,2,0,0,14,99.7
+"Geochemistry, Geophysics, Geosystems",1,0,0,12,0,0,13,99.7
+"QDR Main Collection",4,6,2,0,0,0,12,99.7
+"G-Node",0,4,2,6,0,0,12,99.7
 "Cornell Institute for Social and Economic Research",11,0,0,0,0,0,11,99.8
 "Root",0,0,11,0,0,0,11,99.8
 "SBGrid Data Bank",8,0,1,0,0,1,10,99.8
@@ -48,20 +47,19 @@
 "Stanford Digital Repository",0,0,9,0,0,0,9,99.8
 "Arctic Data Center",0,0,7,2,0,0,9,99.8
 "CaltechDATA",4,0,4,0,0,0,8,99.8
-"USDA Forest Service",2,0,2,4,0,0,8,99.8
 "Environmental System Science Data Infrastructure for a Virtual Ecosystem; Defense Coastal/Estuarine Research Program (DCERP)",0,4,1,0,3,0,8,99.8
 "World Values Survey Association",0,0,8,0,0,0,8,99.8
-"Data Repository for the University of Minnesota",0,0,0,7,0,0,7,99.8
 "PARADIM, an NSF Materials Innovation Platform",6,0,0,0,0,0,6,99.8
-"Johns Hopkins University Data Archive",0,4,2,0,0,0,6,99.9
-"GSA Journals",0,2,0,2,2,0,6,99.9
-"DataverseNO",0,0,6,0,0,0,6,99.9
-"Portail Data INRAE",0,0,6,0,0,0,6,99.9
-"Recherche Data Gouv",0,0,0,6,0,0,6,99.9
-"Cornell University Museum of Vertebrates",5,0,0,0,0,0,5,99.9
-"DR-NTU (Data)",5,0,0,0,0,0,5,99.9
+"Johns Hopkins University Data Archive",0,4,2,0,0,0,6,99.8
+"GSA Journals",0,2,0,2,2,0,6,99.8
+"DataverseNO",0,0,6,0,0,0,6,99.8
+"Portail Data INRAE",0,0,6,0,0,0,6,99.8
+"Recherche Data Gouv",0,0,0,6,0,0,6,99.8
+"Cornell University Museum of Vertebrates",5,0,0,0,0,0,5,99.8
+"DR-NTU (Data)",5,0,0,0,0,0,5,99.8
 "University of St Andrews",3,0,0,1,0,1,5,99.9
 "Science Data Bank",1,0,1,3,0,0,5,99.9
+"USDA Forest Service",1,0,1,3,0,0,5,99.9
 "CSES - Comparative Study of Electoral Systems",0,0,3,2,0,0,5,99.9
 "Cornell Center for Social Sciences",4,0,0,0,0,0,4,99.9
 "Earth System Grid Federation",4,0,0,0,0,0,4,99.9
@@ -98,13 +96,12 @@
 "CoMSES Net",0,0,1,1,0,0,2,99.9
 "DataFirst",0,0,1,0,0,1,2,99.9
 "NOAA Earth System Research Laboratory, Global Monitoring Division",0,0,1,1,0,0,2,99.9
-"UCAR/NCAR - EarthCube",0,0,1,0,1,0,2,100
-"DaRUS",0,0,0,2,0,0,2,100
-"Environmental System Science Data Infrastructure for a Virtual Ecosystem; AmeriFlux Management Project",0,0,0,2,0,0,2,100
-"University of Minnesota",0,0,0,2,0,0,2,100
-"International Potato Center",0,0,0,0,2,0,2,100
+"UCAR/NCAR - EarthCube",0,0,1,0,1,0,2,99.9
+"DaRUS",0,0,0,2,0,0,2,99.9
+"Environmental System Science Data Infrastructure for a Virtual Ecosystem; AmeriFlux Management Project",0,0,0,2,0,0,2,99.9
+"University of Minnesota",0,0,0,2,0,0,2,99.9
+"International Potato Center",0,0,0,0,2,0,2,99.9
 "Microbiology Society",0,0,0,0,2,0,2,100
-"American College of Radiology",0,0,0,0,0,2,2,100
 "American Journal of Agricultural Economics",1,0,0,0,0,0,1,100
 "DataSuds",1,0,0,0,0,0,1,100
 "Journal of Human Resources",1,0,0,0,0,0,1,100
@@ -142,7 +139,6 @@
 "University of Bath",0,0,1,0,0,0,1,100
 "University of Leeds",0,0,1,0,0,0,1,100
 "University of Miami Libraries",0,0,1,0,0,0,1,100
-"University of Michigan Museum of Paleontology",0,0,1,0,0,0,1,100
 "Utah State University",0,0,1,0,0,0,1,100
 "physionet.org",0,0,1,0,0,0,1,100
 "Κατάλογος Δεδομένων SoDaNet",0,0,1,0,0,0,1,100
@@ -168,6 +164,7 @@
 "Northwest Knowledge Network",0,0,0,0,1,0,1,100
 "Univeristy of Leeds",0,0,0,0,1,0,1,100
 "Virginia Polytechnic Inst. and State Univ. (Virginia Tech), Blacksburg, VA (United States)",0,0,0,0,1,0,1,100
+"American College of Radiology",0,0,0,0,0,1,1,100
 "Digital Commons @ Becker, Data and Supporting Files",0,0,0,0,0,1,1,100
 "Digital Commons@Becker, Data and Supporting Files",0,0,0,0,0,1,1,100
 "Digital Commons@Becker, Data and Supporting files",0,0,0,0,0,1,1,100
