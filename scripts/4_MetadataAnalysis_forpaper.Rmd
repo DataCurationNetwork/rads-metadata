@@ -40,7 +40,13 @@ Affiliation data from datacite, affiliation data from cross ref, and the institu
 
 Load required packages and read in combined data. 
 ```{r}
+rm(list = ls())
+
 #packages
+#for radar graph
+devtools::install_github("ricardo-bion/ggradar", 
+                          dependencies = TRUE)
+#load 
 pacman::p_load(dplyr, 
                tidyr, 
                ggplot2, 
@@ -50,15 +56,16 @@ pacman::p_load(dplyr,
                stringr, 
                knitr, 
                DT, 
-               ggbreak)
-
+               ggbreak, 
+               ggradar, 
+               janitor)
 
 
 #Load the combined data from 3_Combined_data.R
 load(file="data_rdata_files/Combined_ALL_data.Rdata")
 
 #rename object
-all_dois <- combined_dois 
+all_dois <- combined_dois3 
 
 #re-factor group so that datacite appears before cross ref
 all_dois$group <- factor(all_dois$group, levels = c("Affiliation - Datacite", "Affiliation - CrossRef", "IR_publisher"))
@@ -100,7 +107,6 @@ all_dois_collapsed <- all_dois[-containerdups,]
 This leaves a total of `r nrow(all_dois_collapsed)` cases. 
 
 
-
 # Overview of the data
 
 DOI types by resource
@@ -122,8 +128,23 @@ all_dois_collapsed %>%
   summarize(count=n()) %>% 
   pivot_wider(names_from = group,
               values_from = count) %>% 
+  adorn_totals(where=c("row", "col")) %>% 
   kable()
 ```
+
+
+How many non-ENCODE DOIs?
+```{r}
+all_dois_collapsed %>% 
+  filter(publisher != "ENCODE Data Coordination Center") %>% 
+  group_by(institution, group) %>% 
+  summarize(count=n()) %>% 
+  pivot_wider(names_from = group,
+              values_from = count) %>% 
+  adorn_totals(where=c("row", "col")) %>% 
+  kable()
+```
+
 
 
 ## Collapse IRs into a single category
@@ -195,6 +216,36 @@ write.csv(by_publisher_collapse_table, file="data_summary_data/Counts of  Publis
 ```
 
 
+Total By institution
+```{r}
+by_publisher_collapse %>% 
+  group_by(institution) %>% 
+  summarize(TotalN = sum(count)) %>% 
+  adorn_totals(where="row") %>% 
+  kable()
+```
+
+
+
+## Counts by Pull Source and Institution
+
+How many IRs were included in the original DataCite and CrossRef pulls?
+```{r}
+all_dois_collapsed %>% 
+  filter(publisher == "Institutional Repository") %>% 
+  group_by(group) %>% 
+  tally() %>% 
+  kable()
+```
+
+By institution
+```{r}
+all_dois_collapsed %>% 
+  filter(publisher == "Institutional Repository") %>% 
+  group_by(group, institution) %>% 
+  tally() %>% 
+  kable()
+```
 
 ## Graphs
 
@@ -398,7 +449,7 @@ Try in B&W safe format with an "other" bar.
 ```{r}
 top10colorsother <- c(top10colors, "Other" = "darkgray")
 pubshortnames <- data.frame(publisher = c(top12pubs, "Other"), 
-                            shortname = c("EN", "FOL", "Z", "DR", "IR", "FG", "ICP", "HD", "TF", "NPD","VTI","MIV","O"))
+                            shortname = c("EN", "FOL", "Z", "DR",  "FG","IR", "ICP", "HD", "TF", "NPD","VTI","MIV","O"))
 
 #add short hands labels
 top10colorsotherLabels <-  paste0(pubshortnames$shortname[match(names(top10colorsother), pubshortnames$publisher)], ": ", names(top10colorsother))
@@ -433,7 +484,7 @@ plotforlegend <- dataforlegend %>%
   theme(legend.position = "bottom", 
         legend.title.align = .5) 
 
-publegend <- get_legend(plotforlegend)
+publegend <- ggfun::get_legend(plotforlegend)
 
 
 ##PLOT A
@@ -512,8 +563,8 @@ by_publisher_percent_plot2a <- by_publisher_percent_plot2a +
           align = "v", 
           axis = "t"))
 
-ggsave(plot = combined_pub_plots, filename="figures/Fig4_DOIDistribution.png", device = "png", width = 8.5, height = 6, units = "in",  dpi = 300, bg="white")
-ggsave(plot = combined_pub_plots, filename="figures/Fig4_DOIDistribution.tif", device = "tiff", width = 8.5, height = 6, units = "in",  dpi = 300, bg="white")
+ggsave(plot = combined_pub_plots, filename="figures/Fig4_DOIDistribution.png", device = "png", width = 8.5, height = 7, units = "in",  dpi = 300, bg="white")
+ggsave(plot = combined_pub_plots, filename="figures/Fig4_DOIDistribution.tif", device = "tiff", width = 8.5, height = 7, units = "in",  dpi = 300, bg="white")
 
 ```
 
@@ -878,6 +929,7 @@ Subset the data to these fields
 ```{r}
 for_metadata <- all_dois_collapsed %>% 
   select(institution, publisher, group, DOI, creators, publicationYear, relatedIdentifiers, fundingReferences, dates) %>% 
+  ungroup() %>% 
   mutate(RowID = 1:nrow(.))
 
 #create function to return if at least one is not NA or NULL
@@ -1155,8 +1207,203 @@ ggsave(plot = completepub2, filename = "figures/CompletenessData_allDatacite.tif
         text = element_text(family = "Arial", size=9),
         axis.text.x = element_text(angle=90, hjust = 1, vjust = .5)))
 
-ggsave(plot = completepub3, filename = "figures/fig5_CompletenessData_allDatacite.png", width = 7.5, height = 4.5, units="in", dpi=300)
-ggsave(plot = completepub3, filename = "figures/fig5_CompletenessData_allDatacite.tif", width = 7.5, device="tiff", height = 4.5, units="in", dpi=300)
+# ggsave(plot = completepub3, filename = "figures/fig5_CompletenessData_allDatacite.png", width = 7.5, height = 4.5, units="in", dpi=300)
+# ggsave(plot = completepub3, filename = "figures/fig5_CompletenessData_allDatacite.tif", width = 7.5, device="tiff", height = 4.5, units="in", dpi=300)
+
+```
+
+
+#### Figure 5 - revised PLOS Suggestion
+
+```{r}
+
+#Add abbreviations to legend
+compvarorder$abbrev <- c("Year", "Name", "Affiliation", "RI", "NI", "Funder", "Award", "FI")
+
+(fig5_all <- by_publisher_complete_dc %>% 
+  mutate(variable = factor(variable, levels = compvarorder$variable)) %>% 
+  select(publisher, variable, percent_complete) %>% 
+  pivot_wider(names_from = variable, 
+              values_from = percent_complete) %>% 
+  ggradar(axis.labels = compvarorder$abbrev, 
+          background.circle.colour = "white"))
+
+fig5_dryad <- by_publisher_complete_dc %>% 
+  filter(publisher == "Dryad") %>% 
+  mutate(abbrev = compvarorder$abbrev[match(variable, compvarorder$variable)]) %>% 
+  select(publisher, abbrev, percent_complete) %>% 
+  pivot_wider(names_from = abbrev, 
+              values_from = percent_complete) %>% 
+  ggradar(grid.min = 0, 
+         grid.mid = 50, 
+         grid.max = 100,
+          group.colours = "black", 
+  background.circle.colour = "white", 
+  axis.label.size=3, 
+  group.line.width = 1, 
+  group.point.size = 3, 
+  grid.label.size = 4,
+  fill = TRUE, 
+  fill.alpha = .15)  +
+  labs(title = "Dryad") +
+  theme(plot.title = element_text(size=13, hjust = .5))
+   
+fig5_figshare <- by_publisher_complete_dc %>% 
+  filter(publisher == "figshare") %>% 
+  mutate(abbrev = compvarorder$abbrev[match(variable, compvarorder$variable)]) %>% 
+  select(publisher, abbrev, percent_complete) %>% 
+  pivot_wider(names_from = abbrev, 
+              values_from = percent_complete) %>% 
+  ggradar(grid.min = 0, 
+         grid.mid = 50, 
+         grid.max = 100,
+          group.colours = "black", 
+  background.circle.colour = "white", 
+  axis.label.size=3, 
+  group.line.width = 1, 
+  group.point.size = 3,  
+  grid.label.size = 4,
+  fill = TRUE, 
+  fill.alpha = .15) +
+  labs(title = "Figshare") +
+  theme(plot.title = element_text(size=13, hjust = .5))
+
+fig5_dataverse <- by_publisher_complete_dc %>% 
+  filter(publisher == "Harvard Dataverse") %>% 
+  mutate(abbrev = compvarorder$abbrev[match(variable, compvarorder$variable)]) %>% 
+  select(publisher, abbrev, percent_complete) %>% 
+  pivot_wider(names_from = abbrev, 
+              values_from = percent_complete) %>% 
+  ggradar(grid.min = 0, 
+         grid.mid = 50, 
+         grid.max = 100,
+          group.colours = "black", 
+  background.circle.colour = "white", 
+  axis.label.size=3, 
+  group.line.width = 1, 
+  group.point.size = 3,  
+  grid.label.size = 4,
+  fill = TRUE, 
+  fill.alpha = .15)  +
+  labs(title = "Harvard Dataverse") +
+  theme(plot.title = element_text(size=13, hjust = .5))
+
+fig5_icpsr <- by_publisher_complete_dc %>% 
+  filter(publisher == "ICPSR") %>% 
+  mutate(abbrev = compvarorder$abbrev[match(variable, compvarorder$variable)]) %>% 
+  select(publisher, abbrev, percent_complete) %>% 
+  pivot_wider(names_from = abbrev, 
+              values_from = percent_complete) %>% 
+  ggradar(grid.min = 0, 
+         grid.mid = 50, 
+         grid.max = 100,
+          group.colours = "black", 
+  background.circle.colour = "white", 
+  axis.label.size=3, 
+  group.line.width = 1, 
+  group.point.size = 3,  
+  grid.label.size = 4,
+  fill = TRUE, 
+  fill.alpha = .15)  +
+  labs(title = "ICPSR") +
+  theme(plot.title = element_text(size=13, hjust = .5))
+
+fig5_ir <- by_publisher_complete_dc %>% 
+  filter(publisher == "Institutional Repository") %>% 
+  mutate(abbrev = compvarorder$abbrev[match(variable, compvarorder$variable)]) %>% 
+  select(publisher, abbrev, percent_complete) %>% 
+  pivot_wider(names_from = abbrev, 
+              values_from = percent_complete) %>% 
+  ggradar(grid.min = 0, 
+         grid.mid = 50, 
+         grid.max = 100,
+          group.colours = "black", 
+  background.circle.colour = "white", 
+  axis.label.size=3, 
+  group.line.width = 1, 
+  group.point.size = 3,  
+  grid.label.size = 4,
+  fill = TRUE, 
+  fill.alpha = .15)  +
+  labs(title = "Institutional Repository") +
+  theme(plot.title = element_text(size=13, hjust = .5))
+
+fig5_npd <- by_publisher_complete_dc %>% 
+  filter(publisher == "Neotoma Paleoecological Database") %>% 
+  mutate(abbrev = compvarorder$abbrev[match(variable, compvarorder$variable)]) %>% 
+  select(publisher, abbrev, percent_complete) %>% 
+  pivot_wider(names_from = abbrev, 
+              values_from = percent_complete) %>% 
+  ggradar(grid.min = 0, 
+         grid.mid = 50, 
+         grid.max = 100,
+          group.colours = "black", 
+  background.circle.colour = "white", 
+  axis.label.size=3, 
+  group.line.width = 1, 
+  group.point.size = 3, 
+  grid.label.size = 4,
+  fill = TRUE, 
+  fill.alpha = .15) +
+  labs(title = "Neotoma Paleoecological Database") +
+  theme(plot.title = element_text(size=13, hjust = .5))
+
+fig5_tf <- by_publisher_complete_dc %>% 
+  filter(publisher == "Taylor & Francis") %>% 
+  mutate(abbrev = compvarorder$abbrev[match(variable, compvarorder$variable)]) %>% 
+  select(publisher, abbrev, percent_complete) %>% 
+  pivot_wider(names_from = abbrev, 
+              values_from = percent_complete) %>% 
+  ggradar(grid.min = 0, 
+         grid.mid = 50, 
+         grid.max = 100,
+          group.colours = "black", 
+  background.circle.colour = "white", 
+  axis.label.size=3, 
+  group.line.width = 1, 
+  group.point.size = 3, 
+  grid.label.size = 4,
+  fill = TRUE, 
+  fill.alpha = .15) +
+  labs(title = "Taylor & Francis") +
+  theme(plot.title = element_text(size=13, hjust = .5))
+
+fig5_zenodo <- by_publisher_complete_dc %>% 
+  filter(publisher == "Zenodo") %>% 
+  mutate(abbrev = compvarorder$abbrev[match(variable, compvarorder$variable)]) %>% 
+  select(publisher, abbrev, percent_complete) %>% 
+  pivot_wider(names_from = abbrev, 
+              values_from = percent_complete) %>% 
+  ggradar(grid.min = 0, 
+         grid.mid = 50, 
+         grid.max = 100,
+          group.colours = "black", 
+  background.circle.colour = "white", 
+  axis.label.size=3, 
+  group.line.width = 1, 
+  group.point.size = 3,
+  grid.label.size = 4,
+  fill = TRUE, 
+  fill.alpha = .15) +
+   labs(title = "Zenodo") +
+  theme(plot.title = element_text(size=13, hjust = .5))
+
+
+(combined_radar <- plot_grid(fig5_dryad, 
+          fig5_figshare, 
+          fig5_dataverse, 
+          fig5_icpsr, 
+          fig5_ir, 
+          fig5_npd, 
+          fig5_tf, 
+          fig5_zenodo, 
+          nrow = 2) +
+    theme(plot.background = element_rect(fill="white")))
+
+
+
+ggsave(plot = combined_radar, filename = "figures/fig5_CompletenessData_allDatacite_radar.png", width = 12, height = 5, units="in", dpi=300)
+ggsave(plot = combined_radar, filename = "figures/fig5_CompletenessData_allDatacite_radar.tif", width = 12, device="tiff", height = 5, units="in", dpi=300)
 
 ```
 
